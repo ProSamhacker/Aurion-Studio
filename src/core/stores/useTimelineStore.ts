@@ -9,68 +9,57 @@ export interface Clip {
   layer: number;
 }
 export interface Caption {
-  start: number; // Seconds (e.g., 1.5)
-  end: number;   // Seconds (e.g., 3.2)
-  text: string;  // The spoken words
+  start: number;
+  end: number;
+  text: string;
 }
 
 interface TimelineState {
-  // Video State
   originalVideoUrl: string | null;
-  
-  // Script State
   generatedScript: string;
-  
   captions: Caption[];
-  setCaptions: (captions: Caption[]) => void;
-
-  // Audio State (NEW)
   audioUrl: string | null;
-
+  
   // Editor State
   clips: Clip[];
   isPlaying: boolean;
-  currentTime: number;
+  currentTime: number; // Current playback time in seconds
+  duration: number;    // Total duration in seconds
+  fps: number;         // Frames Per Second
   
   // Actions
   setOriginalVideo: (url: string) => void;
   setScript: (script: string) => void;
   appendScript: (text: string) => void;
-  
-  // NEW Action for Voiceover
+  setCaptions: (captions: Caption[]) => void;
   setAudio: (url: string) => void;
-  
   addClip: (clip: Clip) => void;
+  
   setIsPlaying: (playing: boolean) => void;
   setCurrentTime: (time: number) => void;
+  setDuration: (duration: number) => void; // <--- NEW
 }
 
 export const useTimelineStore = create<TimelineState>((set) => ({
-  // Initial State
   originalVideoUrl: null,
   generatedScript: "",
-  audioUrl: null, // <--- Initialize audio
+  audioUrl: null,
   clips: [],
+  captions: [],
+  
   isPlaying: false,
   currentTime: 0,
-  captions: [],
+  duration: 60, // Default duration to avoid 0 division
+  fps: 30,
 
-  setCaptions: (captions) => set({ captions }),
-  // Actions implementation
   setOriginalVideo: (url) => set({ originalVideoUrl: url }),
   setScript: (script) => set({ generatedScript: script }),
-  
-  appendScript: (text) => set((state) => ({ 
-    generatedScript: state.generatedScript + text 
-  })),
-  
-  // NEW Action implementation
+  appendScript: (text) => set((state) => ({ generatedScript: state.generatedScript + text })),
+  setCaptions: (captions) => set({ captions }),
   setAudio: (url) => set({ audioUrl: url }),
-  
-  addClip: (clip) => set((state) => ({ 
-    clips: [...state.clips, clip] 
-  })),
+  addClip: (clip) => set((state) => ({ clips: [...state.clips, clip] })),
   
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setCurrentTime: (currentTime) => set({ currentTime }),
+  setDuration: (duration) => set({ duration }),
 }));
