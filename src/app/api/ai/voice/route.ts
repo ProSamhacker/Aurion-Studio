@@ -3,43 +3,75 @@ import { NextResponse } from 'next/server';
 export async function POST(req: Request) {
   try {
     const { text, voiceId } = await req.json();
-    const apiKey = process.env.ELEVENLABS_API_KEY;
 
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Server Config Error: Missing API Key' }, { status: 500 });
+    // 1. Load all available keys
+    // You can store them as a comma-separated string in one env var: "key1,key2,key3"
+    // Or grab specific ones like process.env.KEY1, process.env.KEY2, etc.
+    const keysString = process.env.ELEVENLABS_API_KEYS || process.env.ELEVENLABS_API_KEY || "";
+    const apiKeys = keysString.split(',').map(k => k.trim()).filter(k => k.length > 0);
+
+    if (apiKeys.length === 0) {
+      return NextResponse.json({ error: 'Server Config Error: No API Keys found' }, { status: 500 });
     }
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          text,
-          // FIX: Changed from 'eleven_monolingual_v1' to 'eleven_multilingual_v2'
-          model_id: "eleven_multilingual_v2", 
-          voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-        }),
+    let lastError = null;
+    let successResponse = null;
+
+    // 2. Loop through keys until one works
+    for (const apiKey of apiKeys) {
+      try {
+        console.log(`🎙️ Attempting generation with key ending in ...${apiKey.slice(-4)}`);
+        
+        const response = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'xi-api-key': apiKey,
+            },
+            body: JSON.stringify({
+              text,
+              model_id: "eleven_turbo_v2_5", // Using the Turbo model (50% cheaper)
+              voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          // If error is 401 (Unauthorized) or 402/429 (Quota/Payment), we try the next key
+          // We log it and continue the loop
+          console.warn(`❌ Key ...${apiKey.slice(-4)} failed:`, errorData);
+          lastError = errorData;
+          continue; 
+        }
+
+        // If successful, stop the loop and save the response
+        const audioBuffer = await response.arrayBuffer();
+        successResponse = new Response(audioBuffer, {
+          headers: { 'Content-Type': 'audio/mpeg' },
+        });
+        break; // Exit loop on success
+
+      } catch (e) {
+        console.error(`Network error with key ...${apiKey.slice(-4)}`, e);
+        lastError = "Network Error";
       }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("❌ ElevenLabs API Error:", JSON.stringify(errorData, null, 2));
-      return NextResponse.json({ error: errorData }, { status: response.status });
     }
 
-    const audioBuffer = await response.arrayBuffer();
-    
-    return new Response(audioBuffer, {
-      headers: { 'Content-Type': 'audio/mpeg' },
-    });
+    // 3. Return the result or the final error
+    if (successResponse) {
+      return successResponse;
+    } else {
+      return NextResponse.json({ 
+        error: 'All API keys failed or exhausted credits.', 
+        details: lastError 
+      }, { status: 402 }); 
+    }
 
   } catch (error) {
-    console.error("Server Error:", error);
-    return NextResponse.json({ error: 'Voice generation failed' }, { status: 500 });
+    console.error("Server Fatal Error:", error);
+    return NextResponse.json({ error: 'Voice generation failed completely' }, { status: 500 });
   }
 }

@@ -51,10 +51,11 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ videoUrl, au
         </AbsoluteFill>
       )}
       
-      {/* LAYER 4: Watermark */}
-      <div className="absolute top-10 right-10 opacity-50">
+      {/* LAYER 4: Watermark - REMOVED */}
+      {/* <div className="absolute top-10 right-10 opacity-50">
         <p className="text-white font-bold tracking-widest">AURA STUDIO</p>
-      </div>
+      </div> 
+      */}
     </AbsoluteFill>
   );
 };

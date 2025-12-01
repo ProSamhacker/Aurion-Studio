@@ -156,10 +156,12 @@ export default function StudioPage() {
       }
   };
 
+  // --- UPDATED: Caption generation with filtering ---
   const handleAutoCaption = async () => {
     let mediaToTranscribe = audioUrl || originalVideoUrl;
     let mimeType = audioUrl ? 'audio/mpeg' : 'video/mp4';
     if (!mediaToTranscribe) return;
+    
     setIsTranscribing(true);
     try {
        const responseMedia = await fetch(mediaToTranscribe);
@@ -176,8 +178,24 @@ export default function StudioPage() {
        });
        
        const data = await response.json();
-       setCaptions(data.captions.map((c: any) => ({ ...c, start: parseFloat(c.start), end: parseFloat(c.end) })));
-    } catch (e) { alert("Transcription failed"); } 
+       
+       // Filter out garbage captions (numbers, timecodes, empty strings)
+       const cleanCaptions = data.captions
+        .map((c: any) => ({ ...c, start: parseFloat(c.start), end: parseFloat(c.end) }))
+        .filter((c: any) => {
+            const text = c.text.trim();
+            // Reject purely numeric strings (e.g. "004", "2024")
+            if (/^\d+$/.test(text)) return false; 
+            // Reject timecode-like strings (e.g. "00:04", "1:30")
+            if (/^\d{1,2}:\d{2}$/.test(text)) return false;
+            return text.length > 0;
+        });
+
+       setCaptions(cleanCaptions);
+    } catch (e) { 
+        console.error(e);
+        alert("Transcription failed"); 
+    } 
     finally { setIsTranscribing(false); }
   };
 

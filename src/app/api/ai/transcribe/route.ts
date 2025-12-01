@@ -6,14 +6,14 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    // Accept mimeType from the frontend
     const { mediaData, mimeType } = await req.json();
 
     const schema = z.object({
       captions: z.array(z.object({
         start: z.string().describe("Start time in seconds (e.g. 0.5)"),
         end: z.string().describe("End time in seconds (e.g. 2.5)"),
-        text: z.string().describe("The spoken words"),
+        // UPDATE: Added constraint to description
+        text: z.string().describe("The spoken words (short phrase, max 5-7 words)"),
       }))
     });
 
@@ -24,11 +24,12 @@ export async function POST(req: Request) {
         {
           role: 'user',
           content: [
-            { type: 'text', text: "Transcribe this audio/video. Return precise timestamps and text chunks." },
+            // UPDATE: Modified prompt to enforce short, dynamic segments
+            { type: 'text', text: "Transcribe ONLY the spoken audio. **Split the text into short, rapid-fire segments (maximum 3-7 words per segment)** to mimic real-time dynamic subtitles. Do NOT output full long sentences in a single block. Do not describe visuals, background noise, or silence. Do not transcribe on-screen text/numbers unless explicitly spoken. Return precise timestamps." },
             { 
               type: 'file', 
               data: mediaData, 
-              mediaType: mimeType || 'video/mp4' // Use provided type or default to video
+              mediaType: mimeType || 'video/mp4' 
             },
           ],
         },

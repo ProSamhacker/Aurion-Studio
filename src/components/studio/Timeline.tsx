@@ -1,13 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
-import { Video as VideoIcon, Music, GripVertical, Type } from 'lucide-react';
+import { Video as VideoIcon, Music, GripVertical, Type, Captions } from 'lucide-react';
 import { useTimelineStore } from '@/core/stores/useTimelineStore';
 import { formatTime } from '@/core/utils/time';
+import { generateVideoThumbnails } from '@/core/utils/media';
 
 export const Timeline = () => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   
-  // NOTE: We DO NOT destruct 'currentTime' here to prevent re-renders!
   const { 
     originalVideoUrl, audioUrl, captions, 
     duration, zoomLevel, setZoomLevel, isPlaying,
@@ -16,20 +16,28 @@ export const Timeline = () => {
 
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const [isTrimming, setIsTrimming] = useState<'start' | 'end' | null>(null);
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
 
   // --- CONFIG ---
   const START_PADDING = 20; 
-  // FIX: Increased padding significantly (1000px) so the timeline can keep scrolling 
-  // even when the video nears the end. This prevents the "pointer out of bounds" issue.
-  const END_PADDING = 1000;  
+  // FIX: Reduced padding to restrict scroll movement
+  const END_PADDING = 200;  
   const totalWidth = (duration * zoomLevel) + START_PADDING + END_PADDING; 
 
-  // --- 1. ANIMATION LOOP (The "Game Loop" for the Playhead) ---
+  // --- THUMBNAIL GENERATION ---
+  useEffect(() => {
+    if (originalVideoUrl) {
+        generateVideoThumbnails(originalVideoUrl, 30).then(setThumbnails);
+    } else {
+        setThumbnails([]);
+    }
+  }, [originalVideoUrl]);
+
+  // --- 1. ANIMATION LOOP ---
   useEffect(() => {
     let animationFrameId: number;
 
     const loop = () => {
-      // Direct state access to avoid React render cycle overhead
       const state = useTimelineStore.getState();
       const currentPx = (state.currentTime * state.zoomLevel) + START_PADDING;
 
@@ -37,24 +45,17 @@ export const Timeline = () => {
         playheadRef.current.style.transform = `translateX(${currentPx}px)`;
       }
 
-      // --- SMOOTH AUTO-SCROLL ---
       if (state.isPlaying && viewportRef.current) {
         const viewport = viewportRef.current;
         const viewportWidth = viewport.clientWidth;
         const currentScroll = viewport.scrollLeft;
-        
-        // Calculate where the playhead is relative to the *visible* window
         const relativePos = currentPx - currentScroll;
-
-        // If playhead passes 75% of the screen width, scroll to keep it there.
         const triggerPoint = viewportWidth * 0.75;
 
         if (relativePos > triggerPoint) {
-           // We set the scroll so that currentPx sits exactly at the triggerPoint
            viewport.scrollLeft = currentPx - triggerPoint;
         }
       }
-
       animationFrameId = requestAnimationFrame(loop);
     };
 
@@ -62,8 +63,7 @@ export const Timeline = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [zoomLevel]); 
 
-
-  // --- 2. SCROLL & ZOOM HANDLER ---
+  // --- 2. SCROLL & ZOOM ---
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -73,12 +73,10 @@ export const Timeline = () => {
         e.stopPropagation();
 
         if (e.ctrlKey) {
-            // ZOOM
             const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
             const newZoom = Math.max(10, Math.min(200, useTimelineStore.getState().zoomLevel * zoomDelta));
             setZoomLevel(newZoom);
         } else {
-            // SCROLL
             viewport.scrollLeft += e.deltaY;
         }
     };
@@ -138,8 +136,7 @@ export const Timeline = () => {
   const videoDurationPx = (videoTrim.end - videoTrim.start) * zoomLevel;
 
   return (
-    // FIX: Added 'pr-6' here to create the spacing (margin) from the right page edge
-    <div className="flex flex-col h-60 bg-[#121212] border-t border-[#1f1f1f] select-none relative shrink-0 pr-6">
+    <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] select-none relative shrink-0 pr-6 transition-all">
       <div ref={viewportRef} className="flex-1 overflow-x-auto overflow-y-hidden relative scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0E0E0E] rounded-xl">
         <div className="h-full relative" style={{ width: `${totalWidth}px` }}
             onMouseDown={(e) => {
@@ -168,22 +165,72 @@ export const Timeline = () => {
                 <div className="absolute -top-0 -left-1.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white transform transition-transform group-hover:scale-125"></div>
             </div>
 
-            {/* TRACKS */}
-            <div className="py-4 space-y-4 relative w-full mt-2">
+            {/* TRACKS CONTAINER */}
+            <div className="py-4 space-y-3 relative w-full mt-2">
+                
+                {/* 1. VIDEO TRACK */}
                 {originalVideoUrl && (
-                    <div className="h-14 relative group rounded-md" style={{ left: `${videoStartPx}px`, width: `${videoDurationPx}px` }}>
-                        <div className="absolute inset-0 bg-[#2A2A2A] rounded-md border border-purple-500/40 flex items-center justify-center overflow-hidden">
-                             <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-50">
-                                <VideoIcon className="w-4 h-4 text-purple-300"/>
-                                <span className="text-[10px] text-purple-200">Video Track</span>
+                    <div className="h-16 relative group rounded-lg" style={{ left: `${videoStartPx}px`, width: `${videoDurationPx}px` }}>
+                        <div className="absolute inset-0 bg-[#1E1E1E] rounded-lg border border-purple-500/30 overflow-hidden select-none">
+                             {/* Filmstrip */}
+                             <div className="absolute top-0 bottom-0 flex flex-row opacity-40 pointer-events-none"
+                                style={{ width: `${duration * zoomLevel}px`, left: `-${videoTrim.start * zoomLevel}px` }}
+                             >
+                                {thumbnails.map((src, i) => (
+                                    <img key={i} src={src} className="h-full flex-1 object-cover min-w-0" alt="" />
+                                ))}
+                             </div>
+                             {/* Overlay */}
+                             <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80 z-10">
+                                <VideoIcon className="w-4 h-4 text-purple-200 drop-shadow-md"/>
+                                <span className="text-[10px] text-purple-100 font-bold tracking-wider drop-shadow-md uppercase">Video Source</span>
                              </div>
                         </div>
-                        <div className="absolute left-0 top-0 bottom-0 w-3 bg-purple-600 cursor-ew-resize flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 rounded-l-md"
+                        {/* Trim Handles */}
+                        <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-l-lg transition-opacity"
                             onMouseDown={(e) => { e.stopPropagation(); setIsTrimming('start'); }}><GripVertical className="w-2 h-2 text-white" /></div>
-                        <div className="absolute right-0 top-0 bottom-0 w-3 bg-purple-600 cursor-ew-resize flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 rounded-r-md"
+                        <div className="absolute right-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-r-lg transition-opacity"
                             onMouseDown={(e) => { e.stopPropagation(); setIsTrimming('end'); }}><GripVertical className="w-2 h-2 text-white" /></div>
                     </div>
                 )}
+
+                {/* 2. AUDIO TRACK */}
+                {audioUrl && (
+                    <div className="h-10 relative rounded-md bg-[#1a1a1a] border border-blue-500/30 overflow-hidden group hover:border-blue-500/60 transition-colors"
+                         style={{ left: `${START_PADDING}px`, width: `${duration * zoomLevel}px` }}
+                    >
+                        <div className="absolute inset-0 flex items-center px-3 gap-2">
+                            <div className="bg-blue-500/20 p-1 rounded"><Music className="w-3.5 h-3.5 text-blue-400" /></div>
+                            <span className="text-[10px] text-blue-200 font-medium tracking-wide">AI Voiceover</span>
+                        </div>
+                        {/* Fake Waveform Visual */}
+                        <div className="absolute bottom-0 left-0 right-0 h-1/2 opacity-20 flex items-end gap-0.5 px-2">
+                            {Array.from({ length: 40 }).map((_, i) => (
+                                <div key={i} className="bg-blue-400 w-full rounded-t-sm" style={{ height: `${20 + Math.random() * 80}%` }}></div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. CAPTIONS TRACK */}
+                {captions.length > 0 && (
+                    <div className="relative h-8 w-full mt-1">
+                        {captions.map((cap, i) => (
+                            <div key={i} 
+                                className="absolute top-0 bottom-0 bg-[#222] border border-yellow-500/30 rounded flex items-center px-2 overflow-hidden hover:bg-[#2a2a2a] hover:border-yellow-500/60 transition cursor-help group"
+                                style={{ 
+                                    left: `${(cap.start * zoomLevel) + START_PADDING}px`, 
+                                    width: `${Math.max(20, (cap.end - cap.start) * zoomLevel)}px` 
+                                }}
+                                title={`${formatTime(cap.start)} - ${cap.text}`}
+                            >
+                                {i === 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500/50"></div>}
+                                <span className="text-[9px] text-yellow-100/70 truncate font-mono select-none group-hover:text-yellow-100">{cap.text}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
             </div>
         </div>
       </div>
