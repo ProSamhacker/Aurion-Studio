@@ -2,7 +2,7 @@
 
 export const generateVideoThumbnails = async (
   videoUrl: string, 
-  count: number = 30 // Increased count for smoother previews
+  count: number = 30
 ): Promise<string[]> => {
   return new Promise((resolve) => {
     const video = document.createElement('video');
@@ -15,11 +15,18 @@ export const generateVideoThumbnails = async (
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
+    // Handle Load
     video.onloadedmetadata = async () => {
       canvas.width = 160; 
       canvas.height = 90;
       
       const duration = video.duration;
+      // Safety check for invalid duration
+      if (!duration || duration === Infinity) {
+          resolve([]); 
+          return;
+      }
+
       const interval = duration / count;
 
       for (let i = 0; i < count; i++) {
@@ -31,6 +38,8 @@ export const generateVideoThumbnails = async (
                 video.removeEventListener('seeked', onSeeked);
                 r();
             };
+            // Add error listener to seek as well
+            video.onerror = () => r(); 
             video.addEventListener('seeked', onSeeked);
         });
 
@@ -42,6 +51,12 @@ export const generateVideoThumbnails = async (
       
       video.remove();
       resolve(snapshots);
+    };
+
+    // --- ADD THIS ERROR HANDLER ---
+    video.onerror = (e) => {
+        console.warn("Could not generate thumbnails for:", videoUrl, e);
+        resolve([]); // Resolve with empty array instead of hanging
     };
     
     video.load();

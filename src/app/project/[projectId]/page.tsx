@@ -44,28 +44,41 @@ export default function StudioPage() {
     });
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    const url = URL.createObjectURL(file);
-    setOriginalVideo(url);
-    setCaptions([]);
-    setAudio("");
-    setPreviewVoiceUrl(null);
-    setCurrentTime(0);
-    setIsPlaying(false);
-    
-    const video = document.createElement('video');
-    video.src = url;
-    video.onloadedmetadata = () => {
-        if(isFinite(video.duration)) setDuration(video.duration);
-    };
-    
-    setActiveTool('script'); 
-    await analyzeVideo(file);
-  };
+// src/app/project/[projectId]/page.tsx
 
+const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  // 1. Show local preview immediately (Fast, but temporary)
+  const localUrl = URL.createObjectURL(file);
+  setOriginalVideo(localUrl);
+  
+  // 2. Upload to Drive in background
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      
+      console.log("Saved to Drive:", data.url);
+      
+      // --- THE FIX ---
+      // Replace the temporary local link with the permanent Cloud link
+      setOriginalVideo(data.url); 
+      // ----------------
+      
+  } catch (error) {
+      console.error("Upload failed", error);
+  }
+
+  setActiveTool('script'); 
+  await analyzeVideo(file);
+};
   const analyzeVideo = async (file: File) => {
     setIsAnalyzing(true);
     const { setScript, appendScript } = useTimelineStore.getState();
