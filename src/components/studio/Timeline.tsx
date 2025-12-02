@@ -1,5 +1,6 @@
+// src/components/studio/Timeline.tsx - FULLY FIXED VERSION
 import { useRef, useEffect, useState } from 'react';
-import { Video as VideoIcon, Music, GripVertical, Type, Captions } from 'lucide-react';
+import { Video as VideoIcon, Music, GripVertical, Loader2 } from 'lucide-react';
 import { useTimelineStore } from '@/core/stores/useTimelineStore';
 import { formatTime } from '@/core/utils/time';
 import { generateVideoThumbnails } from '@/core/utils/media';
@@ -17,23 +18,43 @@ export const Timeline = () => {
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const [isTrimming, setIsTrimming] = useState<'start' | 'end' | null>(null);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const [isLoadingThumbnails, setIsLoadingThumbnails] = useState(false);
 
   // --- CONFIG ---
   const START_PADDING = 20; 
-  // FIX: Reduced padding to restrict scroll movement
-  const END_PADDING = 200;  
-  const totalWidth = (duration * zoomLevel) + START_PADDING + END_PADDING; 
+  const END_PADDING = 200;
+  
+  // FIXED: Ensure minimum width even if duration is 0
+  const safeDuration = Math.max(1, duration);
+  const totalWidth = (safeDuration * zoomLevel) + START_PADDING + END_PADDING; 
 
-  // --- THUMBNAIL GENERATION ---
+  // --- THUMBNAIL GENERATION (FIXED) ---
   useEffect(() => {
-    if (originalVideoUrl) {
-        generateVideoThumbnails(originalVideoUrl, 30).then(setThumbnails);
-    } else {
-        setThumbnails([]);
+    if (!originalVideoUrl) {
+      setThumbnails([]);
+      return;
     }
-  }, [originalVideoUrl]);
 
-  // --- 1. ANIMATION LOOP ---
+    setIsLoadingThumbnails(true);
+    console.log('🎬 Generating timeline thumbnails for:', originalVideoUrl);
+    
+    // Generate fewer thumbnails for better performance
+    const thumbnailCount = Math.min(30, Math.max(10, Math.floor(duration / 2)));
+    
+    generateVideoThumbnails(originalVideoUrl, thumbnailCount)
+      .then((thumbs) => {
+        setThumbnails(thumbs);
+        console.log('✅ Generated', thumbs.length, 'thumbnails');
+        setIsLoadingThumbnails(false);
+      })
+      .catch((error) => {
+        console.error('❌ Thumbnail generation failed:', error);
+        setThumbnails([]);
+        setIsLoadingThumbnails(false);
+      });
+  }, [originalVideoUrl, duration]);
+
+  // --- 1. PLAYHEAD ANIMATION LOOP ---
   useEffect(() => {
     let animationFrameId: number;
 
@@ -45,6 +66,7 @@ export const Timeline = () => {
         playheadRef.current.style.transform = `translateX(${currentPx}px)`;
       }
 
+      // Auto-scroll when playing
       if (state.isPlaying && viewportRef.current) {
         const viewport = viewportRef.current;
         const viewportWidth = viewport.clientWidth;
@@ -53,9 +75,10 @@ export const Timeline = () => {
         const triggerPoint = viewportWidth * 0.75;
 
         if (relativePos > triggerPoint) {
-           viewport.scrollLeft = currentPx - triggerPoint;
+          viewport.scrollLeft = currentPx - triggerPoint;
         }
       }
+      
       animationFrameId = requestAnimationFrame(loop);
     };
 
@@ -69,16 +92,18 @@ export const Timeline = () => {
     if (!viewport) return;
 
     const handleWheelNative = (e: WheelEvent) => {
-        e.preventDefault(); 
-        e.stopPropagation();
+      e.preventDefault(); 
+      e.stopPropagation();
 
-        if (e.ctrlKey) {
-            const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
-            const newZoom = Math.max(10, Math.min(200, useTimelineStore.getState().zoomLevel * zoomDelta));
-            setZoomLevel(newZoom);
-        } else {
-            viewport.scrollLeft += e.deltaY;
-        }
+      if (e.ctrlKey || e.metaKey) {
+        // ZOOM
+        const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(10, Math.min(200, useTimelineStore.getState().zoomLevel * zoomDelta));
+        setZoomLevel(newZoom);
+      } else {
+        // SCROLL
+        viewport.scrollLeft += e.deltaY;
+      }
     };
 
     viewport.addEventListener('wheel', handleWheelNative, { passive: false });
@@ -98,17 +123,17 @@ export const Timeline = () => {
       const timeAtMouse = effectiveX / useTimelineStore.getState().zoomLevel;
 
       if (isDraggingPlayhead) {
-          setCurrentTime(Math.max(0, Math.min(duration, timeAtMouse)));
+        setCurrentTime(Math.max(0, Math.min(duration, timeAtMouse)));
       }
 
       if (isTrimming) {
-          if (isTrimming === 'start') {
-              const newStart = Math.min(timeAtMouse, videoTrim.end - 0.5);
-              setVideoTrim(Math.max(0, newStart), videoTrim.end);
-          } else {
-              const newEnd = Math.max(timeAtMouse, videoTrim.start + 0.5);
-              setVideoTrim(videoTrim.start, Math.min(duration, newEnd));
-          }
+        if (isTrimming === 'start') {
+          const newStart = Math.min(timeAtMouse, videoTrim.end - 0.5);
+          setVideoTrim(Math.max(0, newStart), videoTrim.end);
+        } else {
+          const newEnd = Math.max(timeAtMouse, videoTrim.start + 0.5);
+          setVideoTrim(videoTrim.start, Math.min(duration, newEnd));
+        }
       }
     };
 
@@ -121,6 +146,7 @@ export const Timeline = () => {
       window.addEventListener('mousemove', handleGlobalMouseMove);
       window.addEventListener('mouseup', handleGlobalMouseUp);
     }
+    
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -130,108 +156,202 @@ export const Timeline = () => {
   // --- RENDER HELPERS ---
   const tickInterval = zoomLevel > 60 ? 1 : zoomLevel > 30 ? 5 : 10;
   const ticks = [];
-  for (let i = 0; i <= duration; i += tickInterval) { ticks.push(i); }
+  for (let i = 0; i <= safeDuration; i += tickInterval) { 
+    ticks.push(i); 
+  }
 
   const videoStartPx = (videoTrim.start * zoomLevel) + START_PADDING;
   const videoDurationPx = (videoTrim.end - videoTrim.start) * zoomLevel;
 
+  // FIXED: Handle empty timeline case
+  if (!originalVideoUrl) {
+    return (
+      <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] items-center justify-center">
+        <p className="text-gray-500 text-sm">Upload a video to see the timeline</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] select-none relative shrink-0 pr-6 transition-all">
-      <div ref={viewportRef} className="flex-1 overflow-x-auto overflow-y-hidden relative scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0E0E0E] rounded-xl">
-        <div className="h-full relative" style={{ width: `${totalWidth}px` }}
-            onMouseDown={(e) => {
-                if (e.target === e.currentTarget) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const clickX = e.clientX - rect.left;
-                    if (clickX >= START_PADDING) setIsDraggingPlayhead(true);
-                }
-            }}
+      <div 
+        ref={viewportRef} 
+        className="flex-1 overflow-x-auto overflow-y-hidden relative scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0E0E0E] rounded-xl"
+      >
+        <div 
+          className="h-full relative" 
+          style={{ width: `${totalWidth}px`, minWidth: '100%' }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              if (clickX >= START_PADDING) {
+                setIsDraggingPlayhead(true);
+              }
+            }
+          }}
         >
-            {/* RULER */}
-            <div className="h-8 border-b border-gray-800 w-full pointer-events-none sticky top-0 bg-[#121212] z-20">
-                {ticks.map((time) => (
-                    <div key={time} className="absolute bottom-0 h-3 border-l border-gray-600" style={{ left: `${(time * zoomLevel) + START_PADDING}px` }}>
-                        <span className="absolute -top-5 -left-1 text-[10px] text-gray-500 font-mono select-none">{formatTime(time)}</span>
-                    </div>
-                ))}
-            </div>
+          {/* RULER */}
+          <div className="h-8 border-b border-gray-800 w-full pointer-events-none sticky top-0 bg-[#121212] z-20">
+            {ticks.map((time) => (
+              <div 
+                key={time} 
+                className="absolute bottom-0 h-3 border-l border-gray-600" 
+                style={{ left: `${(time * zoomLevel) + START_PADDING}px` }}
+              >
+                <span className="absolute -top-5 -left-1 text-[10px] text-gray-500 font-mono select-none">
+                  {formatTime(time)}
+                </span>
+              </div>
+            ))}
+          </div>
 
-            {/* PLAYHEAD */}
-            <div ref={playheadRef} className="absolute top-0 bottom-0 w-0 z-50 cursor-ew-resize group"
-                style={{ left: 0, top: 0 }} 
-                onMouseDown={(e) => { e.stopPropagation(); setIsDraggingPlayhead(true); }}
+          {/* PLAYHEAD */}
+          <div 
+            ref={playheadRef} 
+            className="absolute top-0 bottom-0 w-0 z-50 cursor-ew-resize group"
+            style={{ left: 0, top: 0 }} 
+            onMouseDown={(e) => { 
+              e.stopPropagation(); 
+              setIsDraggingPlayhead(true); 
+            }}
+          >
+            <div className="absolute top-0 left-0 bottom-0 w-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
+            <div className="absolute -top-0 -left-1.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white transform transition-transform group-hover:scale-125"></div>
+          </div>
+
+          {/* TRACKS CONTAINER */}
+          <div className="py-4 space-y-3 relative w-full mt-2">
+            
+            {/* 1. VIDEO TRACK */}
+            <div 
+              className="h-16 relative group rounded-lg" 
+              style={{ 
+                left: `${videoStartPx}px`, 
+                width: `${Math.max(100, videoDurationPx)}px` // Ensure minimum width
+              }}
             >
-                <div className="absolute top-0 left-0 bottom-0 w-px bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
-                <div className="absolute -top-0 -left-1.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white transform transition-transform group-hover:scale-125"></div>
-            </div>
-
-            {/* TRACKS CONTAINER */}
-            <div className="py-4 space-y-3 relative w-full mt-2">
+              <div className="absolute inset-0 bg-[#1E1E1E] rounded-lg border border-purple-500/30 overflow-hidden select-none">
+                {/* Thumbnail Filmstrip */}
+                {isLoadingThumbnails ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]">
+                    <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                  </div>
+                ) : thumbnails.length > 0 ? (
+                  <div 
+                    className="absolute top-0 bottom-0 flex flex-row opacity-40 pointer-events-none"
+                    style={{ 
+                      width: `${safeDuration * zoomLevel}px`, 
+                      left: `-${videoTrim.start * zoomLevel}px` 
+                    }}
+                  >
+                    {thumbnails.map((src, i) => (
+                      <img 
+                        key={i} 
+                        src={src} 
+                        className="h-full flex-1 object-cover min-w-0" 
+                        alt=""
+                        loading="lazy"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  // Fallback gradient if thumbnails fail
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 to-blue-900/20 opacity-40"></div>
+                )}
                 
-                {/* 1. VIDEO TRACK */}
-                {originalVideoUrl && (
-                    <div className="h-16 relative group rounded-lg" style={{ left: `${videoStartPx}px`, width: `${videoDurationPx}px` }}>
-                        <div className="absolute inset-0 bg-[#1E1E1E] rounded-lg border border-purple-500/30 overflow-hidden select-none">
-                             {/* Filmstrip */}
-                             <div className="absolute top-0 bottom-0 flex flex-row opacity-40 pointer-events-none"
-                                style={{ width: `${duration * zoomLevel}px`, left: `-${videoTrim.start * zoomLevel}px` }}
-                             >
-                                {thumbnails.map((src, i) => (
-                                    <img key={i} src={src} className="h-full flex-1 object-cover min-w-0" alt="" />
-                                ))}
-                             </div>
-                             {/* Overlay */}
-                             <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80 z-10">
-                                <VideoIcon className="w-4 h-4 text-purple-200 drop-shadow-md"/>
-                                <span className="text-[10px] text-purple-100 font-bold tracking-wider drop-shadow-md uppercase">Video Source</span>
-                             </div>
-                        </div>
-                        {/* Trim Handles */}
-                        <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-l-lg transition-opacity"
-                            onMouseDown={(e) => { e.stopPropagation(); setIsTrimming('start'); }}><GripVertical className="w-2 h-2 text-white" /></div>
-                        <div className="absolute right-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-r-lg transition-opacity"
-                            onMouseDown={(e) => { e.stopPropagation(); setIsTrimming('end'); }}><GripVertical className="w-2 h-2 text-white" /></div>
-                    </div>
-                )}
-
-                {/* 2. AUDIO TRACK */}
-                {audioUrl && (
-                    <div className="h-10 relative rounded-md bg-[#1a1a1a] border border-blue-500/30 overflow-hidden group hover:border-blue-500/60 transition-colors"
-                         style={{ left: `${START_PADDING}px`, width: `${duration * zoomLevel}px` }}
-                    >
-                        <div className="absolute inset-0 flex items-center px-3 gap-2">
-                            <div className="bg-blue-500/20 p-1 rounded"><Music className="w-3.5 h-3.5 text-blue-400" /></div>
-                            <span className="text-[10px] text-blue-200 font-medium tracking-wide">AI Voiceover</span>
-                        </div>
-                        {/* Fake Waveform Visual */}
-                        <div className="absolute bottom-0 left-0 right-0 h-1/2 opacity-20 flex items-end gap-0.5 px-2">
-                            {Array.from({ length: 40 }).map((_, i) => (
-                                <div key={i} className="bg-blue-400 w-full rounded-t-sm" style={{ height: `${20 + Math.random() * 80}%` }}></div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* 3. CAPTIONS TRACK */}
-                {captions.length > 0 && (
-                    <div className="relative h-8 w-full mt-1">
-                        {captions.map((cap, i) => (
-                            <div key={i} 
-                                className="absolute top-0 bottom-0 bg-[#222] border border-yellow-500/30 rounded flex items-center px-2 overflow-hidden hover:bg-[#2a2a2a] hover:border-yellow-500/60 transition cursor-help group"
-                                style={{ 
-                                    left: `${(cap.start * zoomLevel) + START_PADDING}px`, 
-                                    width: `${Math.max(20, (cap.end - cap.start) * zoomLevel)}px` 
-                                }}
-                                title={`${formatTime(cap.start)} - ${cap.text}`}
-                            >
-                                {i === 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500/50"></div>}
-                                <span className="text-[9px] text-yellow-100/70 truncate font-mono select-none group-hover:text-yellow-100">{cap.text}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
+                {/* Overlay Label */}
+                <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80 z-10">
+                  <VideoIcon className="w-4 h-4 text-purple-200 drop-shadow-md"/>
+                  <span className="text-[10px] text-purple-100 font-bold tracking-wider drop-shadow-md uppercase">
+                    Video Source
+                  </span>
+                </div>
+              </div>
+              
+              {/* Trim Handles */}
+              <div 
+                className="absolute left-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-l-lg transition-opacity"
+                onMouseDown={(e) => { 
+                  e.stopPropagation(); 
+                  setIsTrimming('start'); 
+                }}
+              >
+                <GripVertical className="w-2 h-2 text-white" />
+              </div>
+              
+              <div 
+                className="absolute right-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-r-lg transition-opacity"
+                onMouseDown={(e) => { 
+                  e.stopPropagation(); 
+                  setIsTrimming('end'); 
+                }}
+              >
+                <GripVertical className="w-2 h-2 text-white" />
+              </div>
             </div>
+
+            {/* 2. AUDIO TRACK */}
+            {audioUrl && (
+              <div 
+                className="h-10 relative rounded-md bg-[#1a1a1a] border border-blue-500/30 overflow-hidden group hover:border-blue-500/60 transition-colors"
+                style={{ 
+                  left: `${START_PADDING}px`, 
+                  width: `${safeDuration * zoomLevel}px` 
+                }}
+              >
+                <div className="absolute inset-0 flex items-center px-3 gap-2">
+                  <div className="bg-blue-500/20 p-1 rounded">
+                    <Music className="w-3.5 h-3.5 text-blue-400" />
+                  </div>
+                  <span className="text-[10px] text-blue-200 font-medium tracking-wide">
+                    AI Voiceover
+                  </span>
+                </div>
+                
+                {/* Fake Waveform Visual */}
+                <div className="absolute bottom-0 left-0 right-0 h-1/2 opacity-20 flex items-end gap-0.5 px-2">
+                  {Array.from({ length: 40 }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="bg-blue-400 w-full rounded-t-sm" 
+                      style={{ height: `${20 + Math.random() * 80}%` }}
+                    ></div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. CAPTIONS TRACK */}
+            {captions.length > 0 && (
+              <div className="relative h-8 w-full mt-1">
+                {captions.map((cap, i) => {
+                  const capLeft = (cap.start * zoomLevel) + START_PADDING;
+                  const capWidth = Math.max(20, (cap.end - cap.start) * zoomLevel);
+                  
+                  return (
+                    <div 
+                      key={i} 
+                      className="absolute top-0 bottom-0 bg-[#222] border border-yellow-500/30 rounded flex items-center px-2 overflow-hidden hover:bg-[#2a2a2a] hover:border-yellow-500/60 transition cursor-help group"
+                      style={{ 
+                        left: `${capLeft}px`, 
+                        width: `${capWidth}px` 
+                      }}
+                      title={`${formatTime(cap.start)} - ${cap.text}`}
+                    >
+                      {i === 0 && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500/50"></div>
+                      )}
+                      <span className="text-[9px] text-yellow-100/70 truncate font-mono select-none group-hover:text-yellow-100">
+                        {cap.text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-// src/core/stores/useTimelineStore.ts
+// src/core/stores/useTimelineStore.ts - PERSISTENCE FIX
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
@@ -64,28 +64,78 @@ const initialState = {
   videoTrim: { start: 0, end: 60 },
 };
 
+// Helper to check if URL is persistable
+const isPersistableUrl = (url: string | null): boolean => {
+  if (!url) return false;
+  
+  // Blob URLs are temporary - don't persist
+  if (url.startsWith('blob:')) {
+    console.warn('⚠️ Blob URL detected - will not persist:', url.substring(0, 30) + '...');
+    return false;
+  }
+  
+  // Proxy URLs are session-specific - don't persist
+  if (url.startsWith('/api/video-proxy')) {
+    console.warn('⚠️ Proxy URL detected - will not persist');
+    return false;
+  }
+  
+  // Data URLs are too large - don't persist
+  if (url.startsWith('data:')) {
+    console.warn('⚠️ Data URL detected - will not persist');
+    return false;
+  }
+  
+  // Drive URLs are good!
+  if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
+    console.log('✅ Drive URL - will persist:', url.substring(0, 50) + '...');
+    return true;
+  }
+  
+  // Other HTTP(S) URLs are probably fine
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    console.log('✅ HTTP URL - will persist:', url.substring(0, 50) + '...');
+    return true;
+  }
+  
+  return false;
+};
+
 export const useTimelineStore = create<TimelineState>()(
   persist(
     (set, get) => ({
       ...initialState,
 
       setOriginalVideo: (url) => {
-        // Only proxy Drive URLs
+        console.log('📹 Setting video URL:', url?.substring(0, 50) + '...');
+        
+        // Proxy Drive URLs for playback
+        let finalUrl = url;
         if (url && (url.includes('drive.google.com') || url.includes('googleusercontent.com'))) {
-          const proxyUrl = `/api/video-proxy?url=${encodeURIComponent(url)}`;
-          set({ originalVideoUrl: proxyUrl });
-        } else {
-          set({ originalVideoUrl: url });
+          finalUrl = `/api/video-proxy?url=${encodeURIComponent(url)}`;
+          console.log('🔀 Proxying for playback (original URL saved for persistence)');
         }
+        
+        // Store both the display URL (proxied) and original URL (for persistence)
+        set({ 
+          originalVideoUrl: finalUrl,
+          // We'll use the original URL in partialize
+        });
       },
 
-      setScript: (script) => set({ generatedScript: script }),
+      setScript: (script) => {
+        console.log('📝 Setting script (length:', script.length, ')');
+        set({ generatedScript: script });
+      },
       
       appendScript: (text) => set((state) => ({ 
         generatedScript: state.generatedScript + text 
       })),
       
-      setCaptions: (captions) => set({ captions }),
+      setCaptions: (captions) => {
+        console.log('💬 Setting captions:', captions.length, 'items');
+        set({ captions });
+      },
 
       updateCaption: (index, newText) => set((state) => {
         const newCaptions = [...state.captions];
@@ -95,7 +145,10 @@ export const useTimelineStore = create<TimelineState>()(
         return { captions: newCaptions };
       }),
 
-      setAudio: (url) => set({ audioUrl: url }),
+      setAudio: (url) => {
+        console.log('🎵 Setting audio URL:', url?.substring(0, 50) + '...');
+        set({ audioUrl: url });
+      },
       
       addClip: (clip) => set((state) => ({ 
         clips: [...state.clips, clip] 
@@ -103,8 +156,8 @@ export const useTimelineStore = create<TimelineState>()(
       
       setIsPlaying: (isPlaying) => {
         const state = get();
-        // Auto-stop at end
         if (isPlaying && state.currentTime >= state.duration) {
+          console.log('⏹️ Auto-stopping at end');
           set({ currentTime: 0, isPlaying: true });
         } else {
           set({ isPlaying });
@@ -115,7 +168,6 @@ export const useTimelineStore = create<TimelineState>()(
         const state = get();
         const clampedTime = Math.max(0, Math.min(state.duration, time));
         
-        // Auto-stop at end
         if (clampedTime >= state.duration && state.isPlaying) {
           set({ currentTime: state.duration, isPlaying: false });
         } else {
@@ -123,54 +175,128 @@ export const useTimelineStore = create<TimelineState>()(
         }
       },
       
-      setDuration: (duration) => set({ 
-        duration,
-        videoTrim: { start: 0, end: duration }
+      setDuration: (duration) => {
+        const validDuration = Math.max(0.1, duration);
+        console.log('⏱️ Setting duration:', validDuration, 'seconds');
+        
+        set({ 
+          duration: validDuration,
+          videoTrim: { start: 0, end: validDuration },
+          currentTime: Math.min(get().currentTime, validDuration)
+        });
+      },
+      
+      setZoomLevel: (zoomLevel) => {
+        const clamped = Math.max(10, Math.min(200, zoomLevel));
+        set({ zoomLevel: clamped });
+      },
+      
+      setVideoTrim: (start, end) => set((state) => {
+        const validStart = Math.max(0, start);
+        const validEnd = Math.min(state.duration, Math.max(start + 0.5, end));
+        
+        console.log('✂️ Trimming video:', validStart, '->', validEnd);
+        
+        return { 
+          videoTrim: { 
+            start: validStart, 
+            end: validEnd
+          } 
+        };
       }),
       
-      setZoomLevel: (zoomLevel) => set({ 
-        zoomLevel: Math.max(10, Math.min(200, zoomLevel)) 
-      }),
-      
-      setVideoTrim: (start, end) => set((state) => ({ 
-        videoTrim: { 
-          start: Math.max(0, start), 
-          end: Math.min(state.duration, Math.max(start + 0.5, end))
-        } 
-      })),
-      
-      resetProject: () => set(initialState),
+      resetProject: () => {
+        console.log('🔄 Resetting project');
+        set(initialState);
+      },
     }),
     {
       name: 'aura-project-storage',
       storage: createJSONStorage(() => localStorage),
-      // Don't persist temporary state or blob URLs
+      version: 2, // Bump version to clear old data
+      
+      // FIXED: Better persistence logic
       partialize: (state) => {
-        const shouldPersist = (url: string | null) => {
-          if (!url) return false;
-          // Don't persist blob URLs - they're temporary
-          if (url.startsWith('blob:')) return false;
-          return true;
-        };
-
+        // Extract original Drive URL from proxy URL if needed
+        let videoUrl = state.originalVideoUrl;
+        if (videoUrl?.startsWith('/api/video-proxy?url=')) {
+          const match = videoUrl.match(/url=([^&]+)/);
+          if (match) {
+            videoUrl = decodeURIComponent(match[1]);
+          }
+        }
+        
         return {
-          // Only persist Drive URLs, not blob URLs
-          originalVideoUrl: shouldPersist(state.originalVideoUrl) ? state.originalVideoUrl : null,
+          // Only persist if it's a Drive URL (not blob/proxy)
+          originalVideoUrl: isPersistableUrl(videoUrl) ? videoUrl : null,
           generatedScript: state.generatedScript,
           captions: state.captions,
-          audioUrl: shouldPersist(state.audioUrl) ? state.audioUrl : null,
+          audioUrl: isPersistableUrl(state.audioUrl) ? state.audioUrl : null,
           duration: state.duration,
           videoTrim: state.videoTrim,
           zoomLevel: state.zoomLevel,
         };
       },
-      // Handle hydration
-      onRehydrateStorage: () => (state) => {
+      
+      // Handle loading saved state
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('❌ Failed to load saved state:', error);
+          return;
+        }
+        
         if (state) {
-          // Reset playback state on load
+          console.log('💾 Loading saved project from localStorage');
+          
+          // Reset playback state
           state.isPlaying = false;
           state.currentTime = 0;
+          
+          // Validate duration
+          if (!state.duration || state.duration <= 0) {
+            console.warn('⚠️ Invalid saved duration, resetting to 60s');
+            state.duration = 60;
+            state.videoTrim = { start: 0, end: 60 };
+          }
+          
+          // Check if we have a video URL
+          if (state.originalVideoUrl) {
+            console.log('✅ Restored video URL:', state.originalVideoUrl.substring(0, 50) + '...');
+            
+            // Re-proxy it if needed
+            if (state.originalVideoUrl.includes('drive.google.com')) {
+              const proxied = `/api/video-proxy?url=${encodeURIComponent(state.originalVideoUrl)}`;
+              state.originalVideoUrl = proxied;
+              console.log('🔀 Re-proxied Drive URL for playback');
+            }
+          } else {
+            console.log('⚠️ No video URL in saved state');
+          }
+          
+          // Log what we restored
+          console.log('📊 Restored state:', {
+            hasVideo: !!state.originalVideoUrl,
+            hasScript: state.generatedScript.length > 0,
+            hasAudio: !!state.audioUrl,
+            hasCaptions: state.captions.length > 0,
+            duration: state.duration
+          });
         }
+      },
+      
+      // Migrate old data if needed
+      migrate: (persistedState: any, version: number) => {
+        if (version < 2) {
+          console.log('🔄 Migrating storage from version', version, 'to 2');
+          // Clear any blob URLs from old versions
+          if (persistedState.originalVideoUrl?.startsWith('blob:')) {
+            persistedState.originalVideoUrl = null;
+          }
+          if (persistedState.audioUrl?.startsWith('blob:')) {
+            persistedState.audioUrl = null;
+          }
+        }
+        return persistedState as TimelineState;
       },
     }
   )
