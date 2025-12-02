@@ -1,303 +1,319 @@
-// src/core/stores/useTimelineStore.ts - PERSISTENCE FIX
+// src/core/stores/useTimelineStore.ts - ENHANCED VERSION
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-
-export interface Clip {
-  id: string;
-  type: 'video' | 'audio' | 'image';
-  url: string;
-  start: number;
-  end: number;
-  layer: number;
-}
 
 export interface Caption {
   start: number;
   end: number;
   text: string;
+  style?: CaptionStyle;
 }
 
-interface TimelineState {
+export interface CaptionStyle {
+  color: string;
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: 'normal' | 'bold';
+  textAlign: 'left' | 'center' | 'right';
+  backgroundColor: string;
+  position: 'top' | 'center' | 'bottom';
+  opacity: number;
+}
+
+export interface VoiceSettings {
+  voiceId: string;
+  speed: number; // 0.5 to 2.0
+  pitch: number; // 0.5 to 2.0
+  stability: number; // 0 to 1
+  similarityBoost: number; // 0 to 1
+}
+
+export interface Project {
+  id: string;
+  name: string;
   originalVideoUrl: string | null;
   generatedScript: string;
   captions: Caption[];
   audioUrl: string | null;
-  
-  clips: Clip[];
+  voiceSettings: VoiceSettings;
+  defaultCaptionStyle: CaptionStyle;
+  duration: number;
+  videoTrim: { start: number; end: number };
+  lastSaved: Date;
+}
+
+interface TimelineState extends Project {
+  // Playback
   isPlaying: boolean;
   currentTime: number;
-  duration: number;
   fps: number;
   zoomLevel: number;
-  videoTrim: { start: number; end: number };
-
-  // Actions
-  setOriginalVideo: (url: string) => void;
-  setScript: (script: string) => void;
-  appendScript: (text: string) => void;
-  setCaptions: (captions: Caption[]) => void;
-  updateCaption: (index: number, text: string) => void;
-  setAudio: (url: string) => void;
-  addClip: (clip: Clip) => void;
   
-  setIsPlaying: (playing: boolean) => void;
-  setCurrentTime: (time: number) => void;
+  // Editing flags
+  hasUnsavedChanges: boolean;
+  isAutoSaving: boolean;
+
+  // Actions - Video
+  setOriginalVideo: (url: string) => void;
   setDuration: (duration: number) => void;
-  setZoomLevel: (zoom: number) => void;
   setVideoTrim: (start: number, end: number) => void;
   
-  // Reset function
+  // Actions - Script
+  setScript: (script: string) => void;
+  appendScript: (text: string) => void;
+  
+  // Actions - Captions
+  setCaptions: (captions: Caption[]) => void;
+  updateCaption: (index: number, updates: Partial<Caption>) => void;
+  updateCaptionStyle: (index: number, style: Partial<CaptionStyle>) => void;
+  setDefaultCaptionStyle: (style: Partial<CaptionStyle>) => void;
+  
+  // Actions - Audio
+  setAudio: (url: string) => void;
+  setVoiceSettings: (settings: Partial<VoiceSettings>) => void;
+  
+  // Actions - Playback
+  setIsPlaying: (playing: boolean) => void;
+  setCurrentTime: (time: number) => void;
+  setZoomLevel: (zoom: number) => void;
+  
+  // Actions - Project Management
+  saveProject: () => void;
+  loadProject: (projectId: string) => void;
+  updateProjectName: (name: string) => void;
   resetProject: () => void;
 }
 
+const defaultCaptionStyle: CaptionStyle = {
+  color: '#FFFFFF',
+  fontSize: 32,
+  fontFamily: 'Inter, sans-serif',
+  fontWeight: 'bold',
+  textAlign: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  position: 'bottom',
+  opacity: 1,
+};
+
+const defaultVoiceSettings: VoiceSettings = {
+  voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam
+  speed: 1.0,
+  pitch: 1.0,
+  stability: 0.5,
+  similarityBoost: 0.75,
+};
+
 const initialState = {
+  id: '',
+  name: 'Untitled Project',
   originalVideoUrl: null,
-  generatedScript: "",
+  generatedScript: '',
   audioUrl: null,
-  clips: [],
   captions: [],
+  voiceSettings: defaultVoiceSettings,
+  defaultCaptionStyle: defaultCaptionStyle,
   isPlaying: false,
   currentTime: 0,
   duration: 60,
   fps: 30,
   zoomLevel: 30,
   videoTrim: { start: 0, end: 60 },
+  lastSaved: new Date(),
+  hasUnsavedChanges: false,
+  isAutoSaving: false,
 };
 
-// Helper to check if URL is persistable
-const isPersistableUrl = (url: string | null): boolean => {
-  if (!url) return false;
-  
-  // Blob URLs are temporary - don't persist
-  if (url.startsWith('blob:')) {
-    console.warn('⚠️ Blob URL detected - will not persist:', url.substring(0, 30) + '...');
-    return false;
-  }
-  
-  // Proxy URLs are session-specific - don't persist
-  if (url.startsWith('/api/video-proxy')) {
-    console.warn('⚠️ Proxy URL detected - will not persist');
-    return false;
-  }
-  
-  // Data URLs are too large - don't persist
-  if (url.startsWith('data:')) {
-    console.warn('⚠️ Data URL detected - will not persist');
-    return false;
-  }
-  
-  // Drive URLs are good!
-  if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
-    console.log('✅ Drive URL - will persist:', url.substring(0, 50) + '...');
-    return true;
-  }
-  
-  // Other HTTP(S) URLs are probably fine
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    console.log('✅ HTTP URL - will persist:', url.substring(0, 50) + '...');
-    return true;
-  }
-  
-  return false;
-};
+export const useTimelineStore = create<TimelineState>((set, get) => ({
+  ...initialState,
 
-export const useTimelineStore = create<TimelineState>()(
-  persist(
-    (set, get) => ({
-      ...initialState,
+  setOriginalVideo: (url) => {
+    const proxiedUrl = url.includes('drive.google.com') 
+      ? `/api/video-proxy?url=${encodeURIComponent(url)}` 
+      : url;
+    
+    set({ 
+      originalVideoUrl: proxiedUrl,
+      hasUnsavedChanges: true 
+    });
+  },
 
-      setOriginalVideo: (url) => {
-        console.log('📹 Setting video URL:', url?.substring(0, 50) + '...');
-        
-        // Proxy Drive URLs for playback
-        let finalUrl = url;
-        if (url && (url.includes('drive.google.com') || url.includes('googleusercontent.com'))) {
-          finalUrl = `/api/video-proxy?url=${encodeURIComponent(url)}`;
-          console.log('🔀 Proxying for playback (original URL saved for persistence)');
-        }
-        
-        // Store both the display URL (proxied) and original URL (for persistence)
-        set({ 
-          originalVideoUrl: finalUrl,
-          // We'll use the original URL in partialize
-        });
-      },
+  setDuration: (duration) => {
+    const validDuration = Math.max(0.1, duration);
+    set({ 
+      duration: validDuration,
+      videoTrim: { start: 0, end: validDuration },
+      currentTime: Math.min(get().currentTime, validDuration),
+      hasUnsavedChanges: true
+    });
+  },
 
-      setScript: (script) => {
-        console.log('📝 Setting script (length:', script.length, ')');
-        set({ generatedScript: script });
-      },
-      
-      appendScript: (text) => set((state) => ({ 
-        generatedScript: state.generatedScript + text 
-      })),
-      
-      setCaptions: (captions) => {
-        console.log('💬 Setting captions:', captions.length, 'items');
-        set({ captions });
-      },
+  setVideoTrim: (start, end) => {
+    const state = get();
+    const validStart = Math.max(0, start);
+    const validEnd = Math.min(state.duration, Math.max(start + 0.5, end));
+    
+    set({ 
+      videoTrim: { start: validStart, end: validEnd },
+      hasUnsavedChanges: true
+    });
+  },
 
-      updateCaption: (index, newText) => set((state) => {
-        const newCaptions = [...state.captions];
-        if (newCaptions[index]) {
-          newCaptions[index] = { ...newCaptions[index], text: newText };
-        }
-        return { captions: newCaptions };
-      }),
+  setScript: (script) => set({ 
+    generatedScript: script,
+    hasUnsavedChanges: true 
+  }),
+  
+  appendScript: (text) => set((state) => ({ 
+    generatedScript: state.generatedScript + text,
+    hasUnsavedChanges: true
+  })),
+  
+  setCaptions: (captions) => {
+    const state = get();
+    const captionsWithStyle = captions.map(cap => ({
+      ...cap,
+      style: cap.style || { ...state.defaultCaptionStyle }
+    }));
+    
+    set({ 
+      captions: captionsWithStyle,
+      hasUnsavedChanges: true
+    });
+  },
 
-      setAudio: (url) => {
-        console.log('🎵 Setting audio URL:', url?.substring(0, 50) + '...');
-        set({ audioUrl: url });
-      },
-      
-      addClip: (clip) => set((state) => ({ 
-        clips: [...state.clips, clip] 
-      })),
-      
-      setIsPlaying: (isPlaying) => {
-        const state = get();
-        if (isPlaying && state.currentTime >= state.duration) {
-          console.log('⏹️ Auto-stopping at end');
-          set({ currentTime: 0, isPlaying: true });
-        } else {
-          set({ isPlaying });
-        }
-      },
-      
-      setCurrentTime: (time) => {
-        const state = get();
-        const clampedTime = Math.max(0, Math.min(state.duration, time));
-        
-        if (clampedTime >= state.duration && state.isPlaying) {
-          set({ currentTime: state.duration, isPlaying: false });
-        } else {
-          set({ currentTime: clampedTime });
-        }
-      },
-      
-      setDuration: (duration) => {
-        const validDuration = Math.max(0.1, duration);
-        console.log('⏱️ Setting duration:', validDuration, 'seconds');
-        
-        set({ 
-          duration: validDuration,
-          videoTrim: { start: 0, end: validDuration },
-          currentTime: Math.min(get().currentTime, validDuration)
-        });
-      },
-      
-      setZoomLevel: (zoomLevel) => {
-        const clamped = Math.max(10, Math.min(200, zoomLevel));
-        set({ zoomLevel: clamped });
-      },
-      
-      setVideoTrim: (start, end) => set((state) => {
-        const validStart = Math.max(0, start);
-        const validEnd = Math.min(state.duration, Math.max(start + 0.5, end));
-        
-        console.log('✂️ Trimming video:', validStart, '->', validEnd);
-        
-        return { 
-          videoTrim: { 
-            start: validStart, 
-            end: validEnd
-          } 
-        };
-      }),
-      
-      resetProject: () => {
-        console.log('🔄 Resetting project');
-        set(initialState);
-      },
-    }),
-    {
-      name: 'aura-project-storage',
-      storage: createJSONStorage(() => localStorage),
-      version: 2, // Bump version to clear old data
-      
-      // FIXED: Better persistence logic
-      partialize: (state) => {
-        // Extract original Drive URL from proxy URL if needed
-        let videoUrl = state.originalVideoUrl;
-        if (videoUrl?.startsWith('/api/video-proxy?url=')) {
-          const match = videoUrl.match(/url=([^&]+)/);
-          if (match) {
-            videoUrl = decodeURIComponent(match[1]);
-          }
-        }
-        
-        return {
-          // Only persist if it's a Drive URL (not blob/proxy)
-          originalVideoUrl: isPersistableUrl(videoUrl) ? videoUrl : null,
-          generatedScript: state.generatedScript,
-          captions: state.captions,
-          audioUrl: isPersistableUrl(state.audioUrl) ? state.audioUrl : null,
-          duration: state.duration,
-          videoTrim: state.videoTrim,
-          zoomLevel: state.zoomLevel,
-        };
-      },
-      
-      // Handle loading saved state
-      onRehydrateStorage: () => (state, error) => {
-        if (error) {
-          console.error('❌ Failed to load saved state:', error);
-          return;
-        }
-        
-        if (state) {
-          console.log('💾 Loading saved project from localStorage');
-          
-          // Reset playback state
-          state.isPlaying = false;
-          state.currentTime = 0;
-          
-          // Validate duration
-          if (!state.duration || state.duration <= 0) {
-            console.warn('⚠️ Invalid saved duration, resetting to 60s');
-            state.duration = 60;
-            state.videoTrim = { start: 0, end: 60 };
-          }
-          
-          // Check if we have a video URL
-          if (state.originalVideoUrl) {
-            console.log('✅ Restored video URL:', state.originalVideoUrl.substring(0, 50) + '...');
-            
-            // Re-proxy it if needed
-            if (state.originalVideoUrl.includes('drive.google.com')) {
-              const proxied = `/api/video-proxy?url=${encodeURIComponent(state.originalVideoUrl)}`;
-              state.originalVideoUrl = proxied;
-              console.log('🔀 Re-proxied Drive URL for playback');
-            }
-          } else {
-            console.log('⚠️ No video URL in saved state');
-          }
-          
-          // Log what we restored
-          console.log('📊 Restored state:', {
-            hasVideo: !!state.originalVideoUrl,
-            hasScript: state.generatedScript.length > 0,
-            hasAudio: !!state.audioUrl,
-            hasCaptions: state.captions.length > 0,
-            duration: state.duration
-          });
-        }
-      },
-      
-      // Migrate old data if needed
-      migrate: (persistedState: any, version: number) => {
-        if (version < 2) {
-          console.log('🔄 Migrating storage from version', version, 'to 2');
-          // Clear any blob URLs from old versions
-          if (persistedState.originalVideoUrl?.startsWith('blob:')) {
-            persistedState.originalVideoUrl = null;
-          }
-          if (persistedState.audioUrl?.startsWith('blob:')) {
-            persistedState.audioUrl = null;
-          }
-        }
-        return persistedState as TimelineState;
-      },
+  updateCaption: (index, updates) => set((state) => {
+    const newCaptions = [...state.captions];
+    if (newCaptions[index]) {
+      newCaptions[index] = { ...newCaptions[index], ...updates };
     }
-  )
-);
+    return { captions: newCaptions, hasUnsavedChanges: true };
+  }),
+
+  updateCaptionStyle: (index, styleUpdates) => set((state) => {
+    const newCaptions = [...state.captions];
+    if (newCaptions[index]) {
+      newCaptions[index] = {
+        ...newCaptions[index],
+        style: { ...newCaptions[index].style, ...styleUpdates } as CaptionStyle
+      };
+    }
+    return { captions: newCaptions, hasUnsavedChanges: true };
+  }),
+
+  setDefaultCaptionStyle: (style) => set((state) => ({
+    defaultCaptionStyle: { ...state.defaultCaptionStyle, ...style },
+    hasUnsavedChanges: true
+  })),
+
+  setAudio: (url) => set({ 
+    audioUrl: url,
+    hasUnsavedChanges: true 
+  }),
+
+  setVoiceSettings: (settings) => set((state) => ({
+    voiceSettings: { ...state.voiceSettings, ...settings },
+    hasUnsavedChanges: true
+  })),
+  
+  setIsPlaying: (isPlaying) => {
+    const state = get();
+    if (isPlaying && state.currentTime >= state.duration) {
+      set({ currentTime: 0, isPlaying: true });
+    } else {
+      set({ isPlaying });
+    }
+  },
+  
+  setCurrentTime: (time) => {
+    const state = get();
+    const clampedTime = Math.max(0, Math.min(state.duration, time));
+    
+    if (clampedTime >= state.duration && state.isPlaying) {
+      set({ currentTime: state.duration, isPlaying: false });
+    } else {
+      set({ currentTime: clampedTime });
+    }
+  },
+  
+  setZoomLevel: (zoomLevel) => {
+    const clamped = Math.max(10, Math.min(200, zoomLevel));
+    set({ zoomLevel: clamped });
+  },
+
+  saveProject: () => {
+    const state = get();
+    
+    // Save to project-specific storage
+    const projectData: Project = {
+      id: state.id,
+      name: state.name,
+      originalVideoUrl: state.originalVideoUrl,
+      generatedScript: state.generatedScript,
+      captions: state.captions,
+      audioUrl: state.audioUrl,
+      voiceSettings: state.voiceSettings,
+      defaultCaptionStyle: state.defaultCaptionStyle,
+      duration: state.duration,
+      videoTrim: state.videoTrim,
+      lastSaved: new Date(),
+    };
+    
+    localStorage.setItem(`aura-project-${state.id}`, JSON.stringify(projectData));
+    
+    // Update projects list
+    const projectsList = JSON.parse(localStorage.getItem('aura-projects') || '[]');
+    const existingIndex = projectsList.findIndex((p: any) => p.id === state.id);
+    
+    const projectMeta = {
+      id: state.id,
+      name: state.name,
+      thumbnail: '', // TODO: Generate thumbnail
+      lastEdited: new Date(),
+      duration: state.duration,
+    };
+    
+    if (existingIndex >= 0) {
+      projectsList[existingIndex] = projectMeta;
+    } else {
+      projectsList.unshift(projectMeta);
+    }
+    
+    localStorage.setItem('aura-projects', JSON.stringify(projectsList));
+    
+    set({ hasUnsavedChanges: false, lastSaved: new Date() });
+    console.log('✅ Project saved:', state.name);
+  },
+
+  loadProject: (projectId) => {
+    const projectData = localStorage.getItem(`aura-project-${projectId}`);
+    
+    if (projectData) {
+      const project: Project = JSON.parse(projectData);
+      
+      set({
+        ...project,
+        isPlaying: false,
+        currentTime: 0,
+        fps: 30,
+        zoomLevel: 30,
+        hasUnsavedChanges: false,
+        isAutoSaving: false,
+      });
+      
+      console.log('✅ Project loaded:', project.name);
+    } else {
+      // New project
+      set({
+        ...initialState,
+        id: projectId,
+        hasUnsavedChanges: false,
+      });
+    }
+  },
+
+  updateProjectName: (name) => set({ 
+    name,
+    hasUnsavedChanges: true 
+  }),
+
+  resetProject: () => set(initialState),
+}));

@@ -113,6 +113,7 @@ export const ToolPanel = ({
 
       {/* --- 3. VOICE STUDIO PANEL --- */}
       {activeTool === 'voice' && (
+        
         <div className="p-6 space-y-8">
           <div>
             <h2 className="text-lg font-bold text-white mb-2">Voice Studio</h2>
@@ -163,60 +164,29 @@ export const ToolPanel = ({
         </div>
       )}
 
-      {/* --- 4. CAPTIONS PANEL --- */}
-      {activeTool === 'captions' && (
-        <div className="flex flex-col h-full">
-            <div className="p-5 border-b border-[#1f1f1f] bg-[#141414]">
-                <h2 className="text-lg font-bold text-white mb-2">Subtitles</h2>
-                <button onClick={handleAutoCaption} disabled={isTranscribing} className="w-full bg-[#252525] hover:bg-[#303030] text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 border border-gray-700 transition">
-                    {isTranscribing ? <Loader2 className="animate-spin w-4 h-4"/> : <Wand2 className="w-4 h-4 text-yellow-400"/>}
-                    {captions.length > 0 ? "Regenerate Captions" : "Auto-Transcribe"}
-                </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                {captions.map((cap, i) => (
-                    <div key={i} className="group flex gap-3 p-3 rounded-lg hover:bg-[#1a1a1a] transition border border-transparent hover:border-gray-800">
-                        <div className="text-[10px] text-gray-600 font-mono mt-1 w-12 shrink-0">{cap.start.toFixed(1)}s</div>
-                        <textarea className="flex-1 bg-transparent text-gray-300 text-sm outline-none resize-none h-auto overflow-hidden" defaultValue={cap.text} rows={Math.ceil(cap.text.length / 30)}/>
-                    </div>
-                ))}
-            </div>
+ {activeTool === 'captions' && (
+  <div className="flex flex-col h-full">
+    {/* Style Editor */}
+    <CaptionStyleEditor
+      style={defaultCaptionStyle}
+      onChange={setDefaultCaptionStyle}
+    />
+    
+    {/* Caption List */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      {captions.map((cap, i) => (
+        <div key={i} className="bg-[#1a1a1a] p-3 rounded-lg">
+          <textarea
+            value={cap.text}
+            onChange={(e) => updateCaption(i, { text: e.target.value })}
+            className="w-full bg-transparent text-sm"
+          />
         </div>
-      )}
-
-     {/* --- 5. AURAIQ BOT (EMBEDDED) --- */}
-      {activeTool === 'auraiq' && (
-        <div className="flex flex-col h-full bg-[#141414]">
-             <div className="p-5 border-b border-[#1f1f1f] flex justify-between items-start">
-                <div>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        <Bot className="w-5 h-5 text-blue-400"/> AuraIQ
-                    </h2>
-                    <p className="text-xs text-gray-500">Your AI Production Assistant</p>
-                </div>
-                <a 
-                    href="https://auraiq-app.vercel.app" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-gray-500 hover:text-white transition p-1 hover:bg-[#252525] rounded-md"
-                    title="Open in new tab"
-                >
-                    <ExternalLink className="w-4 h-4" />
-                </a>
-             </div>
-             
-             {/* THE EMBED */}
-             <div className="flex-1 relative bg-white/5">
-                <iframe 
-                    src="https://auraiq-app.vercel.app"
-                    className="absolute inset-0 w-full h-full border-none"
-                    title="AuraIQ Assistant"
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-                    loading="lazy"
-                />
-             </div>
-        </div>
-      )}
+      ))}
+    </div>
+  </div>
+)}
+     
     </div>
   );
 };

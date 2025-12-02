@@ -1,22 +1,56 @@
+// src/components/editor/VideoComposition.tsx - ENHANCED WITH STYLING
 import React from 'react';
 import { AbsoluteFill, Video, Audio, useCurrentFrame, useVideoConfig } from 'remotion';
-import { Caption } from '@/core/stores/useTimelineStore';
+
+interface CaptionStyle {
+  color: string;
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: 'normal' | 'bold';
+  textAlign: 'left' | 'center' | 'right';
+  backgroundColor: string;
+  position: 'top' | 'center' | 'bottom';
+  opacity: number;
+}
+
+interface Caption {
+  start: number;
+  end: number;
+  text: string;
+  style?: CaptionStyle;
+}
 
 interface VideoCompositionProps {
   videoUrl: string | null;
   audioUrl: string | null;
-  captions: Caption[]; 
+  captions: Caption[];
 }
 
-export const VideoComposition: React.FC<VideoCompositionProps> = ({ videoUrl, audioUrl, captions }) => {
+export const VideoComposition: React.FC<VideoCompositionProps> = ({ 
+  videoUrl, 
+  audioUrl, 
+  captions 
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const currentTime = frame / fps;
 
-  // Find the caption for the current second
+  // Find active caption
   const activeCaption = Array.isArray(captions) 
     ? captions.find((c) => currentTime >= c.start && currentTime <= c.end)
     : null;
+
+  // Default style if none specified
+  const defaultStyle: CaptionStyle = {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    position: 'bottom',
+    opacity: 1,
+  };
 
   if (!videoUrl) {
     return (
@@ -26,36 +60,65 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({ videoUrl, au
     );
   }
 
+  // Get caption style
+  const captionStyle = activeCaption?.style || defaultStyle;
+  
+  // Position mapping
+  const positionClasses = {
+    top: 'top-0 pt-16',
+    center: 'top-1/2 -translate-y-1/2',
+    bottom: 'bottom-0 pb-20'
+  };
+
+  // Alignment classes
+  const alignClasses = {
+    left: 'items-start pl-10',
+    center: 'items-center',
+    right: 'items-end pr-10'
+  };
+
   return (
     <AbsoluteFill className="bg-black">
-      {/* LAYER 1: The Video (MUTED if AI Audio is present) */}
+      
+      {/* LAYER 1: Video (muted if AI audio present) */}
       <Video 
         src={videoUrl} 
-        // FIX: object-contain ensures the entire video is visible regardless of aspect ratio
         className="w-full h-full object-contain"
-        // CRITICAL FIX: This line replaces the original audio with the AI voice
-        volume={audioUrl ? 0 : 1} 
+        volume={audioUrl ? 0 : 1}
       />
 
-      {/* LAYER 2: The AI Voiceover */}
+      {/* LAYER 2: AI Voiceover */}
       {audioUrl && <Audio src={audioUrl} />}
 
-      {/* LAYER 3: Auto-Captions */}
+      {/* LAYER 3: Styled Captions */}
       {activeCaption && (
-        <AbsoluteFill className="justify-end items-center pb-20">
-           <div className="bg-black/60 backdrop-blur-sm px-6 py-4 rounded-2xl border border-white/10 shadow-2xl">
-              <p className="text-yellow-400 text-3xl font-black font-sans text-center uppercase tracking-wider drop-shadow-md">
-                {activeCaption.text}
-              </p>
-           </div>
+        <AbsoluteFill 
+          className={`flex ${alignClasses[captionStyle.textAlign]} ${positionClasses[captionStyle.position]}`}
+          style={{ opacity: captionStyle.opacity }}
+        >
+          <div 
+            className="px-8 py-4 rounded-2xl shadow-2xl max-w-4xl"
+            style={{
+              backgroundColor: captionStyle.backgroundColor,
+            }}
+          >
+            <p 
+              style={{
+                color: captionStyle.color,
+                fontSize: captionStyle.fontSize,
+                fontFamily: captionStyle.fontFamily,
+                fontWeight: captionStyle.fontWeight,
+                textAlign: captionStyle.textAlign,
+                margin: 0,
+                lineHeight: 1.3,
+                textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+              }}
+            >
+              {activeCaption.text}
+            </p>
+          </div>
         </AbsoluteFill>
       )}
-      
-      {/* LAYER 4: Watermark - REMOVED */}
-      {/* <div className="absolute top-10 right-10 opacity-50">
-        <p className="text-white font-bold tracking-widest">AURA STUDIO</p>
-      </div> 
-      */}
     </AbsoluteFill>
   );
 };
