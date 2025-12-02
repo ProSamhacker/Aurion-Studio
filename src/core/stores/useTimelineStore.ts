@@ -1,4 +1,3 @@
-// src/core/stores/useTimelineStore.ts - ENHANCED VERSION
 import { create } from 'zustand';
 
 export interface Caption {

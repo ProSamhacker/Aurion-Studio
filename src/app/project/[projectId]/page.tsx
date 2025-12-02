@@ -1,4 +1,3 @@
-// src/app/project/[projectId]/page.tsx - VIDEO PERSISTENCE FIX
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -10,10 +9,15 @@ import { ToolPanel } from '@/components/layout/ToolPanel';
 import { Canvas } from '@/components/studio/Canvas'; 
 import { Timeline } from '@/components/studio/Timeline';
 import { TimelineControls } from '@/components/studio/TimelineControls';
-import { Download, Loader2, AlertCircle } from 'lucide-react';
+import { Download, Loader2, AlertCircle, ArrowLeft, Save, Clock, Zap, Sliders, Wand2 } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import SmartAlignModal from '@/components/NEW/SmartAlignModal'; 
 
 export default function StudioPage() {
+  const params = useParams();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectId = params.projectId as string;
   
   const [activeTool, setActiveTool] = useState('upload');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -27,26 +31,56 @@ export default function StudioPage() {
   // NEW: Upload tracking
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
+  // NEW: Workspace features
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [showSmartAlign, setShowSmartAlign] = useState(false);
+
   const COMPRESSION_THRESHOLD = 100 * 1024 * 1024; 
 
   const { 
     setOriginalVideo, originalVideoUrl, setScript, appendScript, generatedScript,
     audioUrl, setAudio, setCaptions,
-    setIsPlaying, setCurrentTime, setDuration
+    setIsPlaying, setCurrentTime, setDuration,
+    loadProject, saveProject, hasUnsavedChanges, updateProjectName, name: projectName,
+    voiceSettings
   } = useTimelineStore();
 
   useEffect(() => {
     FFmpegClient.getInstance().then(() => setReady(true)).catch(e => console.error(e));
   }, []);
 
-  // NEW: Warn user before leaving if upload in progress
+  // 1. Load Project on Mount
+  useEffect(() => {
+    if (projectId) {
+      loadProject(projectId);
+    }
+  }, [projectId]);
+
+  // 2. Auto-Save Implementation
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      setAutoSaveStatus('unsaved');
+    }
+    
+    const interval = setInterval(() => {
+      if (useTimelineStore.getState().hasUnsavedChanges) {
+        setAutoSaveStatus('saving');
+        saveProject();
+        setTimeout(() => setAutoSaveStatus('saved'), 1000);
+      }
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [hasUnsavedChanges]);
+
+  // Warn user before leaving if upload in progress
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isUploading || hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = 'Upload in progress. Are you sure you want to leave?';
+        e.returnValue = 'Upload in progress or unsaved changes. Are you sure you want to leave?';
         return e.returnValue;
       }
     };
@@ -55,14 +89,21 @@ export default function StudioPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isUploading, hasUnsavedChanges]);
 
-  // NEW: Check for missing video on load
+  // Check for missing video on load
   useEffect(() => {
     if (originalVideoUrl && originalVideoUrl.startsWith('blob:')) {
       console.warn('⚠️ Blob URL detected on page load - video will not persist');
-      // Clear it since blob URLs don't work after refresh
       setOriginalVideo('');
     }
-  }, []);
+  }, [originalVideoUrl]);
+
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      setShowBackConfirm(true);
+    } else {
+      router.push('/');
+    }
+  };
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -101,12 +142,41 @@ export default function StudioPage() {
     });
   };
 
+  // NEW: Handle Regenerate Script
+  const handleRegenerateScript = async () => {
+    if (!originalVideoUrl) return;
+    
+    // Use a confirm dialog to prevent accidental overwrites
+    if (generatedScript && !confirm("Regenerating will overwrite your current script. Continue?")) {
+      return;
+    }
+
+    try {
+      setIsAnalyzing(true);
+      console.log('🔄 Regenerating script from video URL:', originalVideoUrl);
+      
+      // Fetch the video content
+      const response = await fetch(originalVideoUrl);
+      if (!response.ok) throw new Error('Failed to fetch video for regeneration');
+      
+      const blob = await response.blob();
+      const file = new File([blob], "regenerated_video.mp4", { type: blob.type || 'video/mp4' });
+      
+      // Re-run analysis
+      await analyzeVideo(file);
+      
+    } catch (error) {
+      console.error("❌ Regeneration failed:", error);
+      alert("Failed to regenerate script. Please ensure the video is accessible.");
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     console.log('📁 File selected:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
-    setHasUnsavedChanges(true);
 
     // 1. Create local preview URL (temporary)
     const localUrl = URL.createObjectURL(file);
@@ -128,7 +198,7 @@ export default function StudioPage() {
     if (driveUrl) {
       // Replace temporary blob URL with permanent Drive URL
       setOriginalVideo(driveUrl);
-      setHasUnsavedChanges(false);
+      saveProject(); // Force save after upload
       console.log('✅ Video persisted to Drive:', driveUrl);
     } else {
       console.warn('⚠️ Drive upload failed - video will not persist on refresh');
@@ -148,7 +218,6 @@ export default function StudioPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Simulate progress (since fetch doesn't support upload progress easily)
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 500);
@@ -272,7 +341,11 @@ export default function StudioPage() {
         method: 'POST',
         body: JSON.stringify({ 
           text: textToRead, 
-          voiceId: "pNInz6obpgDQGcFmaJgB" 
+          voiceId: voiceSettings.voiceId,
+          speed: voiceSettings.speed,
+          pitch: voiceSettings.pitch,
+          stability: voiceSettings.stability,
+          similarityBoost: voiceSettings.similarityBoost
         }),
       });
       
@@ -294,6 +367,7 @@ export default function StudioPage() {
       setAudio(previewVoiceUrl);
       setCaptions([]);
       setPreviewVoiceUrl(null);
+      saveProject();
       console.log('✅ Voiceover applied to timeline');
     }
   };
@@ -368,7 +442,7 @@ export default function StudioPage() {
       
       const a = document.createElement('a'); 
       a.href = finalUrl; 
-      a.download = 'aura-studio-export.mp4'; 
+      a.download = `aura-export-${projectId}.mp4`; 
       a.click();
       
       console.log('✅ Export complete');
@@ -396,6 +470,7 @@ export default function StudioPage() {
         handleGenerateVoice={handleGenerateVoice}
         handleApplyVoice={handleApplyVoice}
         handleAutoCaption={handleAutoCaption}
+        handleRegenerateScript={handleRegenerateScript}
         fileInputRef={fileInputRef}
         handleFileSelect={handleFileSelect}
       />
@@ -405,38 +480,76 @@ export default function StudioPage() {
         
         {/* Header Area */}
         <div className="h-14 border-b border-[#1f1f1f] flex items-center justify-between px-6 bg-[#0F0F0F] shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-gray-400">Project: Aura Studio</span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
             
-            {/* NEW: Upload Status Indicator */}
+            <div className="h-6 w-px bg-gray-800"></div>
+            
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => updateProjectName(e.target.value)}
+              className="bg-transparent text-sm font-medium text-white focus:outline-none focus:bg-[#1a1a1a] px-2 py-1 rounded"
+            />
+            
+            {/* Auto-save Indicator */}
+            <div className="flex items-center gap-2 text-xs">
+              {autoSaveStatus === 'saving' && (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                  <span className="text-blue-400">Saving...</span>
+                </>
+              )}
+              {autoSaveStatus === 'saved' && (
+                <>
+                  <Save className="w-3 h-3 text-green-400" />
+                  <span className="text-green-400">Saved</span>
+                </>
+              )}
+              {autoSaveStatus === 'unsaved' && (
+                <>
+                  <Clock className="w-3 h-3 text-yellow-400" />
+                  <span className="text-yellow-400">Unsaved changes</span>
+                </>
+              )}
+            </div>
+
+            {/* Upload Status */}
             {isUploading && (
-              <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1">
+              <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1 ml-2">
                 <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
                 <span className="text-xs text-blue-300 font-medium">
-                  Uploading to Drive... {uploadProgress}%
-                </span>
-              </div>
-            )}
-            
-            {/* NEW: Warning if using blob URL */}
-            {originalVideoUrl && originalVideoUrl.startsWith('blob:') && !isUploading && (
-              <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-full px-3 py-1">
-                <AlertCircle className="w-3 h-3 text-yellow-400" />
-                <span className="text-xs text-yellow-300 font-medium">
-                  Video not saved - will be lost on refresh
+                  Uploading: {uploadProgress}%
                 </span>
               </div>
             )}
           </div>
           
-          <button 
-            onClick={handleFinalExport}
-            disabled={isProcessing || !audioUrl}
-            className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition"
-          >
-            {isProcessing ? <Loader2 className="animate-spin w-3 h-3"/> : <Download className="w-3 h-3"/>}
-            Export Video
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Smart Align Button */}
+            <button
+              onClick={() => setShowSmartAlign(true)}
+              className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg text-xs font-bold transition shadow-lg shadow-cyan-900/20"
+            >
+              <Zap className="w-3 h-3" />
+              Smart Align
+            </button>
+            
+            <button 
+              onClick={handleFinalExport}
+              disabled={isProcessing || !audioUrl}
+              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+            >
+              {isProcessing ? <Loader2 className="animate-spin w-3 h-3"/> : <Download className="w-3 h-3"/>}
+              Export Video
+            </button>
+          </div>
         </div>
 
         {/* ZONE C: CANVAS */}
@@ -447,6 +560,61 @@ export default function StudioPage() {
         <Timeline />
 
       </div>
+
+      {/* Back Confirmation Modal */}
+      {showBackConfirm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-10 h-10 bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white mb-2">Unsaved Changes</h3>
+                <p className="text-sm text-gray-400">
+                  You have unsaved changes. Do you want to save before leaving?
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBackConfirm(false)}
+                className="flex-1 px-4 py-2 bg-[#252525] hover:bg-[#303030] text-white rounded-lg text-sm font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="flex-1 px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-lg text-sm font-medium transition"
+              >
+                Don't Save
+              </button>
+              <button
+                onClick={() => {
+                  saveProject();
+                  router.push('/');
+                }}
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition"
+              >
+                Save & Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Smart Align Modal */}
+      <SmartAlignModal 
+        isOpen={showSmartAlign}
+        onClose={() => setShowSmartAlign(false)}
+        onApply={(options) => {
+          console.log('Applying alignment with options:', options);
+          setShowSmartAlign(false);
+          // Trigger actual alignment logic here using utility
+        }}
+        isProcessing={false} // Add state for processing if needed
+      />
     </div>
   );
 }

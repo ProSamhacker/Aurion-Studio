@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { Video, Wand2, Search, Plus, LayoutTemplate, Settings, FolderOpen, Home, UserCircle, MoreVertical, Play, Trash2, Edit2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 // Project Management
 interface Project {
@@ -8,16 +11,12 @@ interface Project {
   thumbnail: string;
   lastEdited: Date;
   duration: number;
-  videoUrl?: string;
-  script?: string;
-  audioUrl?: string;
-  captions?: any[];
 }
 
 const Dashboard = () => {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [editingProject, setEditingProject] = useState<string | null>(null);
-  const [newProjectName, setNewProjectName] = useState('');
 
   // Load projects from localStorage
   useEffect(() => {
@@ -47,12 +46,12 @@ const Dashboard = () => {
     setProjects(updatedProjects);
     localStorage.setItem('aura-projects', JSON.stringify(updatedProjects));
     
-    // Navigate to project (in real app, use router)
-    window.location.href = `/project/${newProject.id}`;
+    // Navigate to project
+    router.push(`/project/${newProject.id}`);
   };
 
   const handleOpenProject = (projectId: string) => {
-    window.location.href = `/project/${projectId}`;
+    router.push(`/project/${projectId}`);
   };
 
   const handleDeleteProject = (projectId: string, e: React.MouseEvent) => {

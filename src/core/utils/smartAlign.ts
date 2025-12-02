@@ -134,7 +134,7 @@ async function analyzeAudioFile(audioUrl: string): Promise<AudioAnalysis> {
   let currentSilent: { start: number } | null = null;
   let currentSpeech: { start: number } | null = null;
   
-  chunks.forEach((chunk) => {
+  for (const chunk of chunks) {
     if (chunk.amplitude < threshold) {
       // Silence detected
       if (!currentSilent) {
@@ -165,7 +165,7 @@ async function analyzeAudioFile(audioUrl: string): Promise<AudioAnalysis> {
         currentSilent = null;
       }
     }
-  });
+  }
   
   // Close any open segments
   if (currentSilent) {
