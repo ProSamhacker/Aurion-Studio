@@ -12,6 +12,8 @@ import { TimelineControls } from '../../../components/studio/TimelineControls';
 import { Download, Loader2, AlertCircle, ArrowLeft, Save, Clock, Zap } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import SmartAlignModal from '../../../components/NEW/SmartAlignModal'; 
+// Import the Utility Function
+import { smartAlignCaptions } from '../../../core/utils/smartAlign';
 
 export default function StudioPage() {
   const params = useParams();
@@ -28,11 +30,9 @@ export default function StudioPage() {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
   
-  // NEW: Upload tracking
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   
-  // NEW: Workspace features
   const [showBackConfirm, setShowBackConfirm] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [showSmartAlign, setShowSmartAlign] = useState(false);
@@ -41,10 +41,10 @@ export default function StudioPage() {
 
   const { 
     setOriginalVideo, originalVideoUrl, setScript, appendScript, generatedScript,
-    audioUrl, setAudio, setCaptions,
+    audioUrl, setAudio, setCaptions, captions,
     setIsPlaying, setCurrentTime, setDuration,
     loadProject, saveProject, hasUnsavedChanges, updateProjectName, name: projectName,
-    voiceSettings, addMediaToLibrary // Destructured new action
+    voiceSettings, addMediaToLibrary 
   } = useTimelineStore();
 
   useEffect(() => {
@@ -114,9 +114,7 @@ export default function StudioPage() {
       
       video.onloadedmetadata = () => {
         const duration = video.duration;
-        console.log('📹 Video duration extracted:', duration);
         video.remove();
-        
         if (duration && isFinite(duration) && duration > 0) {
           resolve(duration);
         } else {
@@ -142,7 +140,6 @@ export default function StudioPage() {
       let base64Video = "";
       
       if (file.size > COMPRESSION_THRESHOLD) {
-        console.log('🗜️ Video too large, compressing...');
         setIsProcessing(true); 
         setProgress(0);
         
@@ -156,13 +153,10 @@ export default function StudioPage() {
         });
         
         setIsProcessing(false);
-        console.log('✅ Compression complete');
       } else {
         base64Video = await fileToBase64(file);
       }
 
-      console.log('🤖 Sending to Gemini for analysis...');
-      
       const response = await fetch('/api/ai/analyze', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -194,10 +188,7 @@ export default function StudioPage() {
 
         appendScript(chunk);
       }
-      
-      console.log('✅ Script generation complete');
     } catch (err) { 
-      console.error('❌ Analysis failed:', err);
       alert('Failed to analyze video. Please try again.');
     } finally { 
       setIsAnalyzing(false); 
@@ -210,7 +201,6 @@ export default function StudioPage() {
     setUploadProgress(0);
     
     try {
-      console.log('☁️ Uploading to Google Drive...');
       const formData = new FormData();
       formData.append('file', file);
 
@@ -231,7 +221,6 @@ export default function StudioPage() {
       }
       
       const data = await res.json();
-      console.log('✅ Upload complete:', data.url);
       
       setTimeout(() => {
         setIsUploading(false);
@@ -240,78 +229,52 @@ export default function StudioPage() {
       
       return data.url;
     } catch (error) {
-      console.error('❌ Drive upload failed:', error);
+      console.error('Drive upload failed:', error);
       setIsUploading(false);
       setUploadProgress(0);
       return null;
     }
   };
 
-  // UPDATED: Handle Regenerate Script
   const handleRegenerateScript = async () => {
     if (!originalVideoUrl) return;
-    
-    // Use a confirm dialog to prevent accidental overwrites
     if (generatedScript && !confirm("Regenerating will overwrite your current script. Continue?")) {
       return;
     }
-
     try {
       setIsAnalyzing(true);
-      console.log('🔄 Regenerating script from video URL:', originalVideoUrl);
-      
-      // Fetch the video content
       const response = await fetch(originalVideoUrl);
       if (!response.ok) throw new Error('Failed to fetch video for regeneration');
-      
       const blob = await response.blob();
       const file = new File([blob], "regenerated_video.mp4", { type: blob.type || 'video/mp4' });
-      
-      // Re-run analysis
       await analyzeVideo(file);
-      
     } catch (error) {
-      console.error("❌ Regeneration failed:", error);
+      console.error("Regeneration failed:", error);
       alert("Failed to regenerate script. Please ensure the video is accessible.");
       setIsAnalyzing(false);
     }
   };
 
-  // UPDATED: Handle File Select to use Media Library
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    console.log('📁 File selected:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
-
-    // 1. Create local URL
     const localUrl = URL.createObjectURL(file);
-    
-    // 2. Add to library IMMEDIATELY
     addMediaToLibrary(file, localUrl);
-    setOriginalVideo(localUrl); // Set as active
+    setOriginalVideo(localUrl);
 
-    // 3. Extract duration
     try {
       const duration = await extractVideoDuration(localUrl);
       setDuration(duration);
-      console.log('✅ Duration set to:', duration);
     } catch (error) {
-      console.error('❌ Failed to extract duration:', error);
       setDuration(60);
     }
     
-    // 4. Upload to Drive (Async but updates store when done)
     const driveUrl = await uploadToDrive(file);
     if (driveUrl) {
-        // Note: Ideally update the library item with the drive URL here
-        // For now we assume if users reload they might lose the blob unless we persist the drive URL
-        console.log('✅ Video persisted to Drive:', driveUrl);
-    } else {
-      console.warn('⚠️ Drive upload failed - video will not persist on refresh');
+       // Ideally update store here
     }
     
-    // 5. Switch to script tab and start analysis
     setActiveTool('script');
     await analyzeVideo(file);
   };
@@ -323,31 +286,23 @@ export default function StudioPage() {
     try {
       const lines = generatedScript.split('\n');
       const cleanLines = lines
-        // ROBUST CLEANING REGEX:
-        // Removes timestamps (0:00), scene numbers (1., Scene 1:), directions [Happy], and extra symbols
         .map(line => {
             let text = line;
-            // Remove timestamps like (0:00 - 0:05) or [00:12]
             text = text.replace(/[\(\[]\d{1,2}:\d{2}(?:.*?)[\)\]]/g, "");
-            // Remove leading numbers, bullet points, "Scene X:", "Narrator:"
             text = text.replace(/^[\s\d\.\)\-\]]*(?:Scene\s*\d+:?)?(?:Narrator:?)?\s*/i, "");
-            // Remove trailing timestamps or symbols
             text = text.replace(/[\(\[]\d{1,2}:\d{2}.*$/, "");
             return text.trim();
         })
-        .filter(line => line.length > 0 && !line.match(/^\d+$/)); // Filter out empty lines or isolated numbers
+        .filter(line => line.length > 0 && !line.match(/^\d+$/));
 
       const textToRead = cleanLines.join(' ');
       if (textToRead.length < 2) throw new Error("Script is empty after cleaning.");
-
-      console.log('🎙️ Sending text to AI:', textToRead);
       
       const response = await fetch('/api/ai/voice', {
         method: 'POST',
         body: JSON.stringify({ 
           text: textToRead, 
           voiceId: voiceSettings.voiceId,
-          // Pass settings
           speed: voiceSettings.speed,
           pitch: voiceSettings.pitch,
           stability: voiceSettings.stability,
@@ -370,7 +325,7 @@ export default function StudioPage() {
   const handleApplyVoice = () => {
     if (previewVoiceUrl) {
       setAudio(previewVoiceUrl);
-      setCaptions([]); // Reset captions to force regeneration aligned with new audio
+      setCaptions([]); 
       setPreviewVoiceUrl(null);
       saveProject();
     }
@@ -384,8 +339,6 @@ export default function StudioPage() {
     setIsTranscribing(true);
     
     try {
-      console.log('📝 Transcribing audio...');
-      
       const responseMedia = await fetch(mediaToTranscribe);
       const blob = await responseMedia.blob();
       
@@ -419,9 +372,8 @@ export default function StudioPage() {
         });
 
       setCaptions(cleanCaptions);
-      console.log('✅ Transcription complete:', cleanCaptions.length, 'captions');
     } catch (e) { 
-      console.error('❌ Transcription error:', e);
+      console.error('Transcription error:', e);
       alert("Transcription failed. Please try again."); 
     } finally { 
       setIsTranscribing(false); 
@@ -433,11 +385,8 @@ export default function StudioPage() {
       alert('Please add both video and audio before exporting');
       return;
     }
-    
     setIsProcessing(true);
-    
     try {
-      console.log('🎬 Starting final export...');
       const finalUrl = await mergeAudioWithVideo(
         originalVideoUrl, 
         audioUrl, 
@@ -448,10 +397,7 @@ export default function StudioPage() {
       a.href = finalUrl; 
       a.download = `aura-export-${projectId}.mp4`; 
       a.click();
-      
-      console.log('✅ Export complete');
     } catch (e) { 
-      console.error('❌ Export failed:', e);
       alert("Export failed. Please try again."); 
     } finally { 
       setIsProcessing(false); 
@@ -485,73 +431,32 @@ export default function StudioPage() {
         {/* Header Area */}
         <div className="h-14 border-b border-[#1f1f1f] flex items-center justify-between px-6 bg-[#0F0F0F] shrink-0">
           <div className="flex items-center gap-4">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
+            <button onClick={handleBack} className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-[#1a1a1a] rounded-lg transition">
+              <ArrowLeft className="w-4 h-4" /> Back
             </button>
-            
             <div className="h-6 w-px bg-gray-800"></div>
+            <input type="text" value={projectName} onChange={(e) => updateProjectName(e.target.value)} className="bg-transparent text-sm font-medium text-white focus:outline-none focus:bg-[#1a1a1a] px-2 py-1 rounded" />
             
-            <input
-              type="text"
-              value={projectName}
-              onChange={(e) => updateProjectName(e.target.value)}
-              className="bg-transparent text-sm font-medium text-white focus:outline-none focus:bg-[#1a1a1a] px-2 py-1 rounded"
-            />
-            
-            {/* Auto-save Indicator */}
             <div className="flex items-center gap-2 text-xs">
-              {autoSaveStatus === 'saving' && (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
-                  <span className="text-blue-400">Saving...</span>
-                </>
-              )}
-              {autoSaveStatus === 'saved' && (
-                <>
-                  <Save className="w-3 h-3 text-green-400" />
-                  <span className="text-green-400">Saved</span>
-                </>
-              )}
-              {autoSaveStatus === 'unsaved' && (
-                <>
-                  <Clock className="w-3 h-3 text-yellow-400" />
-                  <span className="text-yellow-400">Unsaved changes</span>
-                </>
-              )}
+              {autoSaveStatus === 'saving' && (<><Loader2 className="w-3 h-3 animate-spin text-blue-400" /><span className="text-blue-400">Saving...</span></>)}
+              {autoSaveStatus === 'saved' && (<><Save className="w-3 h-3 text-green-400" /><span className="text-green-400">Saved</span></>)}
+              {autoSaveStatus === 'unsaved' && (<><Clock className="w-3 h-3 text-yellow-400" /><span className="text-yellow-400">Unsaved changes</span></>)}
             </div>
 
-            {/* Upload Status */}
             {isUploading && (
               <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-full px-3 py-1 ml-2">
                 <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
-                <span className="text-xs text-blue-300 font-medium">
-                  Uploading: {uploadProgress}%
-                </span>
+                <span className="text-xs text-blue-300 font-medium">Uploading: {uploadProgress}%</span>
               </div>
             )}
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Smart Align Button */}
-            <button
-              onClick={() => setShowSmartAlign(true)}
-              className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg text-xs font-bold transition shadow-lg shadow-cyan-900/20"
-            >
-              <Zap className="w-3 h-3" />
-              Smart Align
+            <button onClick={() => setShowSmartAlign(true)} className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg text-xs font-bold transition shadow-lg shadow-cyan-900/20">
+              <Zap className="w-3 h-3" /> Smart Align
             </button>
-            
-            <button 
-              onClick={handleFinalExport}
-              disabled={isProcessing || !audioUrl}
-              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition"
-            >
-              {isProcessing ? <Loader2 className="animate-spin w-3 h-3"/> : <Download className="w-3 h-3"/>}
-              Export Video
+            <button onClick={handleFinalExport} disabled={isProcessing || !audioUrl} className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition">
+              {isProcessing ? <Loader2 className="animate-spin w-3 h-3"/> : <Download className="w-3 h-3"/>} Export Video
             </button>
           </div>
         </div>
@@ -575,49 +480,48 @@ export default function StudioPage() {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white mb-2">Unsaved Changes</h3>
-                <p className="text-sm text-gray-400">
-                  You have unsaved changes. Do you want to save before leaving?
-                </p>
+                <p className="text-sm text-gray-400">You have unsaved changes. Do you want to save before leaving?</p>
               </div>
             </div>
-            
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowBackConfirm(false)}
-                className="flex-1 px-4 py-2 bg-[#252525] hover:bg-[#303030] text-white rounded-lg text-sm font-medium transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => router.push('/')}
-                className="flex-1 px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-lg text-sm font-medium transition"
-              >
-                Don't Save
-              </button>
-              <button
-                onClick={() => {
-                  saveProject();
-                  router.push('/');
-                }}
-                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition"
-              >
-                Save & Leave
-              </button>
+              <button onClick={() => setShowBackConfirm(false)} className="flex-1 px-4 py-2 bg-[#252525] hover:bg-[#303030] text-white rounded-lg text-sm font-medium transition">Cancel</button>
+              <button onClick={() => router.push('/')} className="flex-1 px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-lg text-sm font-medium transition">Don't Save</button>
+              <button onClick={() => { saveProject(); router.push('/'); }} className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition">Save & Leave</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Smart Align Modal */}
+      {/* Smart Align Modal - WIRED UP */}
       <SmartAlignModal 
         isOpen={showSmartAlign}
         onClose={() => setShowSmartAlign(false)}
-        onApply={(options) => {
-          console.log('Applying alignment with options:', options);
-          setShowSmartAlign(false);
-          // Trigger actual alignment logic here using utility
+        onApply={async (options) => {
+          setIsProcessing(true);
+          try {
+              if (!audioUrl) {
+                alert("No audio to align with! Generate a voiceover first.");
+                return;
+              }
+              const result = await smartAlignCaptions(audioUrl, captions, {
+                  trimShortSilence: options.trimSilence,
+                  adjustCaptionTiming: options.autoSyncCaptions,
+                  // We ignore beatSyncCuts for now as it's complex
+              });
+              
+              setCaptions(result.alignedCaptions);
+              if (options.trimSilence && result.newDuration) {
+                  setDuration(result.newDuration);
+              }
+          } catch (e) {
+              console.error("Alignment failed", e);
+              alert("Smart alignment failed.");
+          } finally {
+              setIsProcessing(false);
+              setShowSmartAlign(false);
+          }
         }}
-        isProcessing={false} // Add state for processing if needed
+        isProcessing={isProcessing} 
       />
     </div>
   );

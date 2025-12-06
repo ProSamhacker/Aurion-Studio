@@ -3,10 +3,12 @@
 import { Player, PlayerRef } from '@remotion/player';
 import { useTimelineStore } from '@/core/stores/useTimelineStore';
 import { VideoComposition } from './VideoComposition';
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
+import { AlertCircle, FileWarning } from 'lucide-react';
 
 export const RemotionPlayer = () => {
   const playerRef = useRef<PlayerRef>(null);
+  const [playbackError, setPlaybackError] = useState<Error | null>(null);
   
   const { 
     originalVideoUrl, 
@@ -18,47 +20,69 @@ export const RemotionPlayer = () => {
     setCurrentTime,
     duration,
     fps,
-    defaultCaptionStyle // Subscribe to style changes
+    defaultCaptionStyle
   } = useTimelineStore();
 
-  // Memoize inputProps to prevent player reset on every frame update BUT include style dependencies
+  // Reset error when video source changes
+  useEffect(() => {
+    setPlaybackError(null);
+  }, [originalVideoUrl]);
+
   const inputProps = useMemo(() => ({
     videoUrl: originalVideoUrl,
     audioUrl: audioUrl,
     captions: captions.map(c => ({
         ...c,
-        style: c.style || defaultCaptionStyle // Ensure latest default style is applied
+        style: c.style || defaultCaptionStyle
     }))
   }), [originalVideoUrl, audioUrl, captions, defaultCaptionStyle]);
 
+  // Handle Player Errors (Both Render & Media errors)
+  const handleError = useCallback((e: Error) => {
+    console.error("Remotion Playback Error:", e);
+    setPlaybackError(e);
+    setIsPlaying(false);
+  }, [setIsPlaying]);
+
+  // Component to catch Render Errors (React Error Boundary)
+  // This effectively acts as the 'onError' callback by capturing the error from the boundary
+  const PlayerErrorFallback = useCallback(({ error }: { error: Error }) => {
+    useEffect(() => {
+      handleError(error);
+    }, [error, handleError]);
+    // We return null here because the parent component (RemotionPlayer) 
+    // detects the state change (playbackError) and renders the custom error UI instead.
+    return null;
+  }, [handleError]);
+
   // 1. Sync Store -> Player (Play/Pause)
   useEffect(() => {
-    if (!playerRef.current) return;
+    if (!playerRef.current || playbackError) return;
     if (isPlaying && !playerRef.current.isPlaying()) {
       playerRef.current.play();
     } else if (!isPlaying && playerRef.current.isPlaying()) {
       playerRef.current.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, playbackError]);
 
   // 2. Sync Store -> Player (Seeking)
   useEffect(() => {
-    if (!playerRef.current) return;
+    if (!playerRef.current || playbackError) return;
     
     const playerTime = playerRef.current.getCurrentFrame() / fps;
     const timeDiff = Math.abs(playerTime - currentTime);
 
-    if (timeDiff > 0.25) { // Increased threshold slightly
+    if (timeDiff > 0.25) { 
       playerRef.current.seekTo(currentTime * fps);
     }
-  }, [currentTime, fps]);
+  }, [currentTime, fps, playbackError]);
 
   // 3. Sync Player -> Store (Polling Loop)
   useEffect(() => {
     let animationFrameId: number;
 
     const loop = () => {
-      if (playerRef.current && isPlaying) {
+      if (playerRef.current && isPlaying && !playbackError) {
         const frame = playerRef.current.getCurrentFrame();
         const durationInFrames = Math.max(1, Math.floor(duration * fps));
 
@@ -72,19 +96,41 @@ export const RemotionPlayer = () => {
       }
     };
 
-    if (isPlaying) {
+    if (isPlaying && !playbackError) {
       loop();
     }
 
     return () => {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, [isPlaying, fps, setCurrentTime, duration, setIsPlaying]);
+  }, [isPlaying, fps, setCurrentTime, duration, setIsPlaying, playbackError]);
+
+  // Custom Error UI (Prevents White Screen of Death)
+  if (playbackError) {
+    return (
+      <div className="w-full h-full bg-[#0a0a0a] border border-red-900/30 flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-red-500/10 p-4 rounded-full mb-4">
+          <FileWarning className="w-10 h-10 text-red-500" />
+        </div>
+        <h3 className="text-white font-bold text-lg mb-2">Unsupported Video Format</h3>
+        <p className="text-sm text-gray-400 max-w-md mb-4 leading-relaxed">
+          The browser cannot play this video file directly. 
+          <br />
+          Common unsupported formats: <strong>.MKV, .AVI, or HEVC (H.265)</strong>.
+        </p>
+        <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-3 max-w-sm w-full">
+           <p className="text-[10px] text-red-300 font-mono break-all">
+             {playbackError.message}
+           </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-black">
       <Player
-        key={audioUrl || 'no-audio'} // CRITICAL: Force re-mount when audio changes to ensure it loads
+        key={`${originalVideoUrl}-${audioUrl}`} 
         ref={playerRef}
         component={VideoComposition}
         inputProps={inputProps}
@@ -94,6 +140,8 @@ export const RemotionPlayer = () => {
         compositionHeight={1080}
         style={{ width: '100%', height: '100%' }}
         controls={false}
+        // FIXED: Removed invalid 'onError' prop
+        errorFallback={PlayerErrorFallback}
       />
     </div>
   );

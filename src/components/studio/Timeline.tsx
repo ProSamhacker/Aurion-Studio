@@ -1,4 +1,3 @@
-// src/components/studio/Timeline.tsx - FULLY FIXED VERSION
 import { useRef, useEffect, useState } from 'react';
 import { Video as VideoIcon, Music, GripVertical, Loader2 } from 'lucide-react';
 import { useTimelineStore } from '@/core/stores/useTimelineStore';
@@ -12,7 +11,7 @@ export const Timeline = () => {
   const { 
     originalVideoUrl, audioUrl, captions, 
     duration, zoomLevel, setZoomLevel, isPlaying,
-    videoTrim, setVideoTrim, setCurrentTime
+    videoTrim, setVideoTrim, setCurrentTime, setOriginalVideo
   } = useTimelineStore();
 
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
@@ -24,11 +23,10 @@ export const Timeline = () => {
   const START_PADDING = 20; 
   const END_PADDING = 200;
   
-  // FIXED: Ensure minimum width even if duration is 0
   const safeDuration = Math.max(1, duration);
   const totalWidth = (safeDuration * zoomLevel) + START_PADDING + END_PADDING; 
 
-  // --- THUMBNAIL GENERATION (FIXED) ---
+  // --- THUMBNAIL GENERATION ---
   useEffect(() => {
     if (!originalVideoUrl) {
       setThumbnails([]);
@@ -36,19 +34,16 @@ export const Timeline = () => {
     }
 
     setIsLoadingThumbnails(true);
-    console.log('🎬 Generating timeline thumbnails for:', originalVideoUrl);
-    
     // Generate fewer thumbnails for better performance
     const thumbnailCount = Math.min(30, Math.max(10, Math.floor(duration / 2)));
     
     generateVideoThumbnails(originalVideoUrl, thumbnailCount)
       .then((thumbs) => {
         setThumbnails(thumbs);
-        console.log('✅ Generated', thumbs.length, 'thumbnails');
         setIsLoadingThumbnails(false);
       })
       .catch((error) => {
-        console.error('❌ Thumbnail generation failed:', error);
+        console.error('Thumbnail generation failed:', error);
         setThumbnails([]);
         setIsLoadingThumbnails(false);
       });
@@ -66,7 +61,6 @@ export const Timeline = () => {
         playheadRef.current.style.transform = `translateX(${currentPx}px)`;
       }
 
-      // Auto-scroll when playing
       if (state.isPlaying && viewportRef.current) {
         const viewport = viewportRef.current;
         const viewportWidth = viewport.clientWidth;
@@ -96,12 +90,10 @@ export const Timeline = () => {
       e.stopPropagation();
 
       if (e.ctrlKey || e.metaKey) {
-        // ZOOM
         const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
         const newZoom = Math.max(10, Math.min(200, useTimelineStore.getState().zoomLevel * zoomDelta));
         setZoomLevel(newZoom);
       } else {
-        // SCROLL
         viewport.scrollLeft += e.deltaY;
       }
     };
@@ -153,7 +145,20 @@ export const Timeline = () => {
     };
   }, [isDraggingPlayhead, isTrimming, videoTrim, setCurrentTime, setVideoTrim, duration]);
 
-  // --- RENDER HELPERS ---
+  // --- 4. DRAG & DROP HANDLERS ---
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const url = e.dataTransfer.getData('video/url');
+    if (url) {
+        setOriginalVideo(url);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
   const tickInterval = zoomLevel > 60 ? 1 : zoomLevel > 30 ? 5 : 10;
   const ticks = [];
   for (let i = 0; i <= safeDuration; i += tickInterval) { 
@@ -163,20 +168,19 @@ export const Timeline = () => {
   const videoStartPx = (videoTrim.start * zoomLevel) + START_PADDING;
   const videoDurationPx = (videoTrim.end - videoTrim.start) * zoomLevel;
 
-  // FIXED: Handle empty timeline case
   if (!originalVideoUrl) {
     return (
       <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] items-center justify-center">
-        <p className="text-gray-500 text-sm">Upload a video to see the timeline</p>
+        <p className="text-gray-500 text-sm">Upload a video or drag from library to start</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] select-none relative shrink-0 pr-6 transition-all">
+    <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] select-none relative shrink-0 pr-6 transition-all z-0">
       <div 
         ref={viewportRef} 
-        className="flex-1 overflow-x-auto overflow-y-hidden relative scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-[#0E0E0E] rounded-xl"
+        className="flex-1 overflow-x-auto overflow-y-hidden relative modern-scrollbar rounded-xl"
       >
         <div 
           className="h-full relative" 
@@ -228,10 +232,12 @@ export const Timeline = () => {
               className="h-16 relative group rounded-lg" 
               style={{ 
                 left: `${videoStartPx}px`, 
-                width: `${Math.max(100, videoDurationPx)}px` // Ensure minimum width
+                width: `${Math.max(100, videoDurationPx)}px` 
               }}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
             >
-              <div className="absolute inset-0 bg-[#1E1E1E] rounded-lg border border-purple-500/30 overflow-hidden select-none">
+              <div className="absolute inset-0 bg-[#1E1E1E] rounded-lg border border-purple-500/30 overflow-hidden select-none group-hover:border-purple-400 transition-colors">
                 {/* Thumbnail Filmstrip */}
                 {isLoadingThumbnails ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]">
@@ -256,12 +262,11 @@ export const Timeline = () => {
                     ))}
                   </div>
                 ) : (
-                  // Fallback gradient if thumbnails fail
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 to-blue-900/20 opacity-40"></div>
                 )}
                 
                 {/* Overlay Label */}
-                <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80 z-10">
+                <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80 z-10 pointer-events-none">
                   <VideoIcon className="w-4 h-4 text-purple-200 drop-shadow-md"/>
                   <span className="text-[10px] text-purple-100 font-bold tracking-wider drop-shadow-md uppercase">
                     Video Source
@@ -309,7 +314,6 @@ export const Timeline = () => {
                   </span>
                 </div>
                 
-                {/* Fake Waveform Visual */}
                 <div className="absolute bottom-0 left-0 right-0 h-1/2 opacity-20 flex items-end gap-0.5 px-2">
                   {Array.from({ length: 40 }).map((_, i) => (
                     <div 

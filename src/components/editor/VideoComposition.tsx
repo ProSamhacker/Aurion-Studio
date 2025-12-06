@@ -1,4 +1,3 @@
-// src/components/editor/VideoComposition.tsx
 import React from 'react';
 import { AbsoluteFill, Video, Audio, useCurrentFrame, useVideoConfig } from 'remotion';
 
@@ -40,7 +39,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
     ? captions.find((c) => currentTime >= c.start && currentTime <= c.end)
     : null;
 
-  // Default style if none specified (Fallback)
+  // Default style fallback
   const defaultStyle: CaptionStyle = {
     color: '#FFFFFF',
     fontSize: 42,
@@ -52,54 +51,62 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
     opacity: 1,
   };
 
-  if (!videoUrl) {
-    return (
-      <AbsoluteFill className="bg-black flex items-center justify-center">
-        <h1 className="text-white text-2xl font-bold tracking-widest uppercase">Aura Studio</h1>
-      </AbsoluteFill>
-    );
-  }
-
-  // Get caption style - use caption's own style or fallback
   const captionStyle = activeCaption?.style || defaultStyle;
-  
-  // Position mapping
-  const positionClasses = {
-    top: 'top-0 pt-16',
-    center: 'top-1/2 -translate-y-1/2',
-    bottom: 'bottom-0 pb-20'
+
+  // FLEXBOX POSITIONING LOGIC
+  // Vertical Position (controlled by justify-content in flex-col)
+  const verticalMap = {
+    top: 'justify-start pt-16',
+    center: 'justify-center',
+    bottom: 'justify-end pb-20'
   };
 
-  // Alignment classes
-  const alignClasses = {
-    left: 'items-start pl-10',
+  // Horizontal Alignment (controlled by align-items in flex-col)
+  const horizontalMap = {
+    left: 'items-start pl-16',
     center: 'items-center',
-    right: 'items-end pr-10'
+    right: 'items-end pr-16'
   };
 
   return (
     <AbsoluteFill className="bg-black">
       
-      {/* LAYER 1: Video (muted if AI audio present) */}
-      <Video 
-        src={videoUrl} 
-        className="w-full h-full object-contain"
-        volume={audioUrl ? 0 : 1}
-      />
+      {/* LAYER 1: Video */}
+      {videoUrl ? (
+        <Video 
+          src={videoUrl} 
+          className="w-full h-full object-contain"
+          // Mute video track if AI audio exists to prevent audio clashes
+          volume={audioUrl ? 0 : 1}
+        />
+      ) : (
+        <AbsoluteFill className="bg-[#111] flex items-center justify-center">
+           <span className="text-gray-500 font-mono">No Video Source</span>
+        </AbsoluteFill>
+      )}
 
-      {/* LAYER 2: AI Voiceover - Critical fix: Key handled in parent */}
-      {audioUrl && <Audio src={audioUrl} />}
+      {/* LAYER 2: AI Voiceover - Explicitly rendered with Key */}
+      {audioUrl && (
+        <Audio 
+            src={audioUrl} 
+            volume={1}
+            // Key forces Remotion to reload the audio element if URL changes
+            key={audioUrl} 
+        />
+      )}
 
       {/* LAYER 3: Styled Captions */}
       {activeCaption && (
         <AbsoluteFill 
-          className={`flex ${alignClasses[captionStyle.textAlign]} ${positionClasses[captionStyle.position]}`}
+          className={`flex flex-col ${verticalMap[captionStyle.position]} ${horizontalMap[captionStyle.textAlign]}`}
           style={{ opacity: captionStyle.opacity }}
         >
           <div 
-            className="px-6 py-3 rounded-xl shadow-lg max-w-[85%] backdrop-blur-sm"
+            className="px-6 py-3 rounded-xl shadow-lg backdrop-blur-sm max-w-[85%] transition-all duration-200 origin-center"
             style={{
               backgroundColor: captionStyle.backgroundColor,
+              // Subtle scale down for very long text to prevent edge clipping
+              transform: `scale(${1 + (activeCaption.text.length > 50 ? -0.1 : 0)})`
             }}
           >
             <p 
@@ -110,7 +117,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
                 fontWeight: captionStyle.fontWeight,
                 textAlign: captionStyle.textAlign,
                 margin: 0,
-                lineHeight: 1.3,
+                lineHeight: 1.4,
                 textShadow: '0px 2px 4px rgba(0,0,0,0.8)',
               }}
             >

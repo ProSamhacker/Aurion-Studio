@@ -26,13 +26,29 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Modern Scrollbar Hiding - Required for ToolPanel & VoicePanel */
+/* --- MODERN SCROLLBAR --- */
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
   .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Modern thin scrollbar for panels */
+  .modern-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .modern-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .modern-scrollbar::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+  }
+  .modern-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #555;
   }
 }
