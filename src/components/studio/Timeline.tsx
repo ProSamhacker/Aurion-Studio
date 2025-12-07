@@ -23,7 +23,8 @@ export const Timeline = () => {
   const START_PADDING = 20; 
   const END_PADDING = 200;
   
-  const safeDuration = Math.max(1, duration);
+  // Safe duration calculation
+  const safeDuration = Math.max(duration, videoTrim.end - videoTrim.start);
   const totalWidth = (safeDuration * zoomLevel) + START_PADDING + END_PADDING; 
 
   // --- THUMBNAIL GENERATION ---
@@ -34,7 +35,6 @@ export const Timeline = () => {
     }
 
     setIsLoadingThumbnails(true);
-    // Generate fewer thumbnails for better performance
     const thumbnailCount = Math.min(30, Math.max(10, Math.floor(duration / 2)));
     
     generateVideoThumbnails(originalVideoUrl, thumbnailCount)
@@ -123,8 +123,9 @@ export const Timeline = () => {
           const newStart = Math.min(timeAtMouse, videoTrim.end - 0.5);
           setVideoTrim(Math.max(0, newStart), videoTrim.end);
         } else {
-          const newEnd = Math.max(timeAtMouse, videoTrim.start + 0.5);
-          setVideoTrim(videoTrim.start, Math.min(duration, newEnd));
+          const newDuration = Math.max(0.5, timeAtMouse);
+          const newEnd = videoTrim.start + newDuration;
+          setVideoTrim(videoTrim.start, newEnd);
         }
       }
     };
@@ -145,7 +146,34 @@ export const Timeline = () => {
     };
   }, [isDraggingPlayhead, isTrimming, videoTrim, setCurrentTime, setVideoTrim, duration]);
 
-  // --- 4. DRAG & DROP HANDLERS ---
+  // --- FIX: HANDLE CLICK-TO-SEEK ---
+  const handleTimelineMouseDown = (e: React.MouseEvent) => {
+    // 1. Check if clicking on an interactive element (like trim handles or clips)
+    const target = e.target as HTMLElement;
+    const isInteractive = target.closest('.cursor-ew-resize') || target.closest('.cursor-grab');
+    
+    if (isInteractive) return;
+
+    // 2. Calculate position
+    if (viewportRef.current) {
+        const rect = viewportRef.current.getBoundingClientRect();
+        const scrollLeft = viewportRef.current.scrollLeft;
+        const relativeX = e.clientX - rect.left + scrollLeft;
+        
+        // 3. Prevent clicking in the padding area before 0s
+        if (relativeX < START_PADDING) return;
+
+        const effectiveX = relativeX - START_PADDING;
+        const timeAtMouse = effectiveX / zoomLevel;
+        
+        // 4. Update Time Immediately (Jump)
+        setCurrentTime(Math.max(0, Math.min(duration, timeAtMouse)));
+        
+        // 5. Start Dragging (Scrub)
+        setIsDraggingPlayhead(true);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const url = e.dataTransfer.getData('video/url');
@@ -165,8 +193,9 @@ export const Timeline = () => {
     ticks.push(i); 
   }
 
-  const videoStartPx = (videoTrim.start * zoomLevel) + START_PADDING;
-  const videoDurationPx = (videoTrim.end - videoTrim.start) * zoomLevel;
+  const videoTrackLeft = START_PADDING;
+  const videoDuration = videoTrim.end - videoTrim.start;
+  const videoTrackWidth = videoDuration * zoomLevel;
 
   if (!originalVideoUrl) {
     return (
@@ -185,15 +214,8 @@ export const Timeline = () => {
         <div 
           className="h-full relative" 
           style={{ width: `${totalWidth}px`, minWidth: '100%' }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const clickX = e.clientX - rect.left;
-              if (clickX >= START_PADDING) {
-                setIsDraggingPlayhead(true);
-              }
-            }
-          }}
+          // Attach the corrected mouse down handler here
+          onMouseDown={handleTimelineMouseDown}
         >
           {/* RULER */}
           <div className="h-8 border-b border-gray-800 w-full pointer-events-none sticky top-0 bg-[#121212] z-20">
@@ -229,15 +251,15 @@ export const Timeline = () => {
             
             {/* 1. VIDEO TRACK */}
             <div 
-              className="h-16 relative group rounded-lg" 
+              className="h-20 relative group rounded-lg" 
               style={{ 
-                left: `${videoStartPx}px`, 
-                width: `${Math.max(100, videoDurationPx)}px` 
+                left: `${videoTrackLeft}px`, 
+                width: `${Math.max(50, videoTrackWidth)}px` 
               }}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
-              <div className="absolute inset-0 bg-[#1E1E1E] rounded-lg border border-purple-500/30 overflow-hidden select-none group-hover:border-purple-400 transition-colors">
+              <div className="absolute inset-y-1 inset-x-0 bg-[#1E1E1E] rounded-lg border border-purple-500/30 overflow-hidden select-none group-hover:border-purple-400 transition-colors">
                 {/* Thumbnail Filmstrip */}
                 {isLoadingThumbnails ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]">
@@ -245,11 +267,7 @@ export const Timeline = () => {
                   </div>
                 ) : thumbnails.length > 0 ? (
                   <div 
-                    className="absolute top-0 bottom-0 flex flex-row opacity-40 pointer-events-none"
-                    style={{ 
-                      width: `${safeDuration * zoomLevel}px`, 
-                      left: `-${videoTrim.start * zoomLevel}px` 
-                    }}
+                    className="absolute top-0 bottom-0 flex flex-row opacity-40 pointer-events-none w-full"
                   >
                     {thumbnails.map((src, i) => (
                       <img 
@@ -269,30 +287,32 @@ export const Timeline = () => {
                 <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-80 z-10 pointer-events-none">
                   <VideoIcon className="w-4 h-4 text-purple-200 drop-shadow-md"/>
                   <span className="text-[10px] text-purple-100 font-bold tracking-wider drop-shadow-md uppercase">
-                    Video Source
+                    Main Video ({formatTime(videoDuration)})
                   </span>
                 </div>
               </div>
               
               {/* Trim Handles */}
               <div 
-                className="absolute left-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-l-lg transition-opacity"
+                className="absolute left-0 top-1 bottom-1 w-4 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-30 opacity-0 group-hover:opacity-100 rounded-l-lg transition-opacity shadow-lg"
                 onMouseDown={(e) => { 
                   e.stopPropagation(); 
                   setIsTrimming('start'); 
                 }}
+                title="Trim Start"
               >
-                <GripVertical className="w-2 h-2 text-white" />
+                <GripVertical className="w-3 h-3 text-white" />
               </div>
               
               <div 
-                className="absolute right-0 top-0 bottom-0 w-2.5 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 rounded-r-lg transition-opacity"
+                className="absolute right-0 top-1 bottom-1 w-4 bg-purple-600/80 hover:bg-purple-500 cursor-ew-resize flex items-center justify-center z-30 opacity-0 group-hover:opacity-100 rounded-r-lg transition-opacity shadow-lg"
                 onMouseDown={(e) => { 
                   e.stopPropagation(); 
                   setIsTrimming('end'); 
                 }}
+                title="Trim End"
               >
-                <GripVertical className="w-2 h-2 text-white" />
+                <GripVertical className="w-3 h-3 text-white" />
               </div>
             </div>
 
@@ -302,7 +322,7 @@ export const Timeline = () => {
                 className="h-10 relative rounded-md bg-[#1a1a1a] border border-blue-500/30 overflow-hidden group hover:border-blue-500/60 transition-colors"
                 style={{ 
                   left: `${START_PADDING}px`, 
-                  width: `${safeDuration * zoomLevel}px` 
+                  width: `${videoTrackWidth}px` 
                 }}
               >
                 <div className="absolute inset-0 flex items-center px-3 gap-2">

@@ -171,8 +171,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   setVideoTrim: (start, end) => {
     const state = get();
+    // Allow start to be 0 or greater, but not less than 0
     const validStart = Math.max(0, start);
-    const validEnd = Math.min(state.duration, Math.max(start + 0.5, end));
+    // Ensure end is always after start (min 0.5s duration)
+    // We also cap it at the video total duration if that info is available, 
+    // but here we just ensure basic logical consistency.
+    const validEnd = Math.max(validStart + 0.5, end);
     
     set({ 
       videoTrim: { start: validStart, end: validEnd },
@@ -192,7 +196,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   
   setCaptions: (captions) => {
     set({ 
-      captions, // Don't bake style into captions, use defaultStyle as source of truth unless overridden
+      captions, 
       hasUnsavedChanges: true
     });
   },
