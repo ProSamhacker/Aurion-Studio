@@ -19,6 +19,9 @@ import { Canvas } from '../../../components/studio/Canvas';
 import { Timeline } from '../../../components/studio/Timeline';
 import { TimelineControls } from '../../../components/studio/TimelineControls';
 
+// FIX: Import the SmartAlignModal component
+import SmartAlignModal from '@/components/NEW/SmartAlignModal';
+
 export default function StudioPage() {
   const params = useParams();
   const router = useRouter();
@@ -142,8 +145,9 @@ export default function StudioPage() {
       }
       
       // Update duration if the strategy modified silence
-      if (options.trimSilence && result.newDuration) {
-         setDuration(result.newDuration);
+      // Note: Ensure `newDuration` is added to the AlignmentStrategy interface in intelligentSmartAlign.ts
+      if (options.trimSilence && (result as any).newDuration) {
+         setDuration((result as any).newDuration);
       }
 
     } catch (error) {
