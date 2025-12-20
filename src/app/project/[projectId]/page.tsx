@@ -1,19 +1,23 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Download, Loader2, AlertCircle, ArrowLeft, Save, Clock, Zap } from 'lucide-react';
+
+// Core & Stores
 import { useTimelineStore } from '../../../core/stores/useTimelineStore';
 import { FFmpegClient } from '../../../core/ffmpeg/client';
 import { compressVideo, mergeAudioWithVideo } from '../../../core/ffmpeg/actions';
+
+// Utils
+import { applySmartAlignment } from '@/core/utils/intelligentSmartAlign';
+
+// Components
 import { Sidebar } from '../../../components/layout/Sidebar';
 import { ToolPanel } from '../../../components/layout/ToolPanel';
 import { Canvas } from '../../../components/studio/Canvas'; 
 import { Timeline } from '../../../components/studio/Timeline';
 import { TimelineControls } from '../../../components/studio/TimelineControls';
-import { Download, Loader2, AlertCircle, ArrowLeft, Save, Clock, Zap } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import SmartAlignModal from '../../../components/NEW/SmartAlignModal'; 
-// Import the Utility Function
-import { smartAlignCaptions } from '../../../core/utils/smartAlign';
 
 export default function StudioPage() {
   const params = useParams();
@@ -21,6 +25,7 @@ export default function StudioPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectId = params.projectId as string;
   
+  // Local State
   const [activeTool, setActiveTool] = useState('upload');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -42,7 +47,7 @@ export default function StudioPage() {
   const { 
     setOriginalVideo, originalVideoUrl, setScript, appendScript, generatedScript,
     audioUrl, setAudio, setCaptions, captions,
-    setIsPlaying, setCurrentTime, setDuration,
+    setIsPlaying, setCurrentTime, setDuration, duration,
     loadProject, saveProject, hasUnsavedChanges, updateProjectName, name: projectName,
     voiceSettings, addMediaToLibrary 
   } = useTimelineStore();
@@ -94,6 +99,59 @@ export default function StudioPage() {
       setShowBackConfirm(true);
     } else {
       router.push('/');
+    }
+  };
+
+  // --- Smart Alignment Logic ---
+  const handleSmartAlign = async (options: any) => {
+    if (!audioUrl || !originalVideoUrl) {
+      alert("Need both video and audio to align!");
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    try {
+      // Create a fallback trim object if not in store
+      const currentVideoTrim = { start: 0, end: duration }; 
+
+      const result = await applySmartAlignment(
+        originalVideoUrl,
+        currentVideoTrim.end - currentVideoTrim.start,
+        audioUrl,
+        duration, // assuming audio duration matches video or is handled internally
+        generatedScript,
+        captions,
+        (message: string, percent: number) => {
+          console.log(`${message} (${percent}%)`);
+          setProgress(percent);
+        }
+      );
+
+      // Log results
+      console.log('✅ Smart Align Strategy:', result.strategy);
+      console.log('📊 Confidence:', (result.confidence * 100).toFixed(0) + '%');
+      
+      // Notify user (Optional: could be a toast instead of alert)
+      // const recommendations = result.recommendations.join('\n');
+      // alert(`Smart Align Complete!\n\nStrategy: ${result.strategy}\nConfidence: ${(result.confidence * 100).toFixed(0)}%\n\n${recommendations}`);
+
+      // Apply aligned captions
+      if (result.alignedCaptions) {
+        setCaptions(result.alignedCaptions);
+      }
+      
+      // Update duration if the strategy modified silence
+      if (options.trimSilence && result.newDuration) {
+         setDuration(result.newDuration);
+      }
+
+    } catch (error) {
+      console.error('Smart Align failed:', error);
+      alert('Alignment failed. Check console for details.');
+    } finally {
+      setIsProcessing(false);
+      setShowSmartAlign(false);
     }
   };
 
@@ -323,12 +381,9 @@ export default function StudioPage() {
   };
 
   const handleApplyVoice = () => {
-    if (previewVoiceUrl) {
-      setAudio(previewVoiceUrl);
-      setCaptions([]); 
-      setPreviewVoiceUrl(null);
-      saveProject();
-    }
+    // Just clear preview - duration extraction now in ToolPanel
+    setPreviewVoiceUrl(null);
+    saveProject();
   };
 
   const handleAutoCaption = async () => {
@@ -492,37 +547,15 @@ export default function StudioPage() {
         </div>
       )}
 
-      {/* Smart Align Modal - WIRED UP */}
-      <SmartAlignModal 
-        isOpen={showSmartAlign}
-        onClose={() => setShowSmartAlign(false)}
-        onApply={async (options) => {
-          setIsProcessing(true);
-          try {
-              if (!audioUrl) {
-                alert("No audio to align with! Generate a voiceover first.");
-                return;
-              }
-              const result = await smartAlignCaptions(audioUrl, captions, {
-                  trimShortSilence: options.trimSilence,
-                  adjustCaptionTiming: options.autoSyncCaptions,
-                  // We ignore beatSyncCuts for now as it's complex
-              });
-              
-              setCaptions(result.alignedCaptions);
-              if (options.trimSilence && result.newDuration) {
-                  setDuration(result.newDuration);
-              }
-          } catch (e) {
-              console.error("Alignment failed", e);
-              alert("Smart alignment failed.");
-          } finally {
-              setIsProcessing(false);
-              setShowSmartAlign(false);
-          }
-        }}
-        isProcessing={isProcessing} 
-      />
+      {/* Smart Align Modal */}
+      {showSmartAlign && (
+        <SmartAlignModal 
+          isOpen={showSmartAlign}
+          onClose={() => setShowSmartAlign(false)}
+          onApply={handleSmartAlign}
+          isProcessing={isProcessing} 
+        />
+      )}
     </div>
   );
 }

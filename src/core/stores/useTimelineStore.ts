@@ -1,4 +1,4 @@
-// src/core/stores/useTimelineStore.ts - ENHANCED WITH CLIPBOARD
+// src/core/stores/useTimelineStore.ts - WITH UNDO/REDO & AUDIO DURATION
 import { create } from 'zustand';
 
 export interface Caption {
@@ -42,6 +42,7 @@ export interface Project {
   generatedScript: string;
   captions: Caption[];
   audioUrl: string | null;
+  audioDuration: number | null; // ADDED: Track actual audio length
   voiceSettings: VoiceSettings;
   defaultCaptionStyle: CaptionStyle;
   duration: number;
@@ -49,24 +50,36 @@ export interface Project {
   lastSaved: Date;
 }
 
-// Clipboard interface
 interface ClipboardData {
   type: 'video' | 'audio' | 'caption';
   data: any;
   index?: number;
 }
 
+// History state for undo/redo
+interface HistoryState {
+  captions: Caption[];
+  videoTrim: { start: number; end: number };
+  audioUrl: string | null;
+  generatedScript: string;
+  duration: number;
+}
+
 interface TimelineState extends Project {
-  // Playback
   isPlaying: boolean;
   currentTime: number;
   fps: number;
   zoomLevel: number;
   
-  // Editing
   hasUnsavedChanges: boolean;
   isAutoSaving: boolean;
   clipboard: ClipboardData | null;
+  
+  // Undo/Redo
+  history: HistoryState[];
+  historyIndex: number;
+  canUndo: boolean;
+  canRedo: boolean;
 
   // Actions
   setOriginalVideo: (url: string) => void;
@@ -80,18 +93,23 @@ interface TimelineState extends Project {
   updateCaption: (index: number, updates: Partial<Caption>) => void;
   updateCaptionStyle: (index: number, style: Partial<CaptionStyle>) => void;
   setDefaultCaptionStyle: (style: Partial<CaptionStyle>) => void;
-  setAudio: (url: string) => void;
+  setAudio: (url: string, duration: number) => void; // UPDATED: Accept duration
   setVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   setIsPlaying: (playing: boolean) => void;
   setCurrentTime: (time: number) => void;
   setZoomLevel: (zoom: number) => void;
   
-  // Clipboard & Editing operations
+  // Clipboard & Editing
   copyClip: (type: string, index?: number) => void;
   cutClip: (type: string, index?: number) => void;
   pasteClip: (atTime: number) => void;
   deleteClip: (type: string, index?: number) => void;
   splitClipAtPlayhead: (time: number) => void;
+  
+  // Undo/Redo
+  undo: () => void;
+  redo: () => void;
+  saveToHistory: () => void;
   
   // Project management
   saveProject: () => void;
@@ -126,6 +144,7 @@ const initialState = {
   mediaLibrary: [],
   generatedScript: '',
   audioUrl: null,
+  audioDuration: null, // ADDED
   captions: [],
   voiceSettings: defaultVoiceSettings,
   defaultCaptionStyle: defaultCaptionStyle,
@@ -139,15 +158,87 @@ const initialState = {
   hasUnsavedChanges: false,
   isAutoSaving: false,
   clipboard: null,
+  history: [],
+  historyIndex: -1,
+  canUndo: false,
+  canRedo: false,
 };
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({
   ...initialState,
 
+  // ========== HISTORY MANAGEMENT ==========
+  
+  saveToHistory: () => {
+    const state = get();
+    
+    const historyState: HistoryState = {
+      captions: JSON.parse(JSON.stringify(state.captions)),
+      videoTrim: { ...state.videoTrim },
+      audioUrl: state.audioUrl,
+      generatedScript: state.generatedScript,
+      duration: state.duration
+    };
+    
+    // Remove any redo history when making new changes
+    const newHistory = state.history.slice(0, state.historyIndex + 1);
+    newHistory.push(historyState);
+    
+    // Limit history to 50 states
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    }
+    
+    set({
+      history: newHistory,
+      historyIndex: newHistory.length - 1,
+      canUndo: true,
+      canRedo: false
+    });
+  },
+
+  undo: () => {
+    const state = get();
+    
+    if (state.historyIndex > 0) {
+      const newIndex = state.historyIndex - 1;
+      const historyState = state.history[newIndex];
+      
+      set({
+        ...historyState,
+        historyIndex: newIndex,
+        canUndo: newIndex > 0,
+        canRedo: true,
+        hasUnsavedChanges: true
+      });
+    }
+  },
+
+  redo: () => {
+    const state = get();
+    
+    if (state.historyIndex < state.history.length - 1) {
+      const newIndex = state.historyIndex + 1;
+      const historyState = state.history[newIndex];
+      
+      set({
+        ...historyState,
+        historyIndex: newIndex,
+        canUndo: true,
+        canRedo: newIndex < state.history.length - 1,
+        hasUnsavedChanges: true
+      });
+    }
+  },
+
+  // ========== MEDIA MANAGEMENT ==========
+
   setOriginalVideo: (url) => {
     const proxiedUrl = url.includes('drive.google.com') 
       ? `/api/video-proxy?url=${encodeURIComponent(url)}` 
       : url;
+    
+    get().saveToHistory();
     
     set({ 
       originalVideoUrl: proxiedUrl,
@@ -180,6 +271,9 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   setDuration: (duration) => {
     const validDuration = Math.max(0.1, duration);
+    
+    get().saveToHistory();
+    
     set({ 
       duration: validDuration,
       videoTrim: { start: 0, end: validDuration },
@@ -191,63 +285,92 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const validStart = Math.max(0, start);
     const validEnd = Math.max(validStart + 0.5, end);
     
+    get().saveToHistory();
+    
     set({ 
       videoTrim: { start: validStart, end: validEnd },
       hasUnsavedChanges: true
     });
   },
 
-  setScript: (script) => set({ 
-    generatedScript: script,
-    hasUnsavedChanges: true 
-  }),
+  // ========== SCRIPT MANAGEMENT ==========
+
+  setScript: (script) => {
+    get().saveToHistory();
+    
+    set({ 
+      generatedScript: script,
+      hasUnsavedChanges: true 
+    });
+  },
   
   appendScript: (text) => set((state) => ({ 
     generatedScript: state.generatedScript + text,
     hasUnsavedChanges: true
   })),
   
+  // ========== CAPTIONS MANAGEMENT ==========
+
   setCaptions: (captions) => {
+    get().saveToHistory();
+    
     set({ 
       captions, 
       hasUnsavedChanges: true
     });
   },
 
-  updateCaption: (index, updates) => set((state) => {
-    const newCaptions = [...state.captions];
-    if (newCaptions[index]) {
-      newCaptions[index] = { ...newCaptions[index], ...updates };
-    }
-    return { captions: newCaptions, hasUnsavedChanges: true };
-  }),
+  updateCaption: (index, updates) => {
+    get().saveToHistory();
+    
+    set((state) => {
+      const newCaptions = [...state.captions];
+      if (newCaptions[index]) {
+        newCaptions[index] = { ...newCaptions[index], ...updates };
+      }
+      return { captions: newCaptions, hasUnsavedChanges: true };
+    });
+  },
 
-  updateCaptionStyle: (index, styleUpdates) => set((state) => {
-    const newCaptions = [...state.captions];
-    if (newCaptions[index]) {
-      newCaptions[index] = {
-        ...newCaptions[index],
-        style: { ...(newCaptions[index].style || state.defaultCaptionStyle), ...styleUpdates } as CaptionStyle
-      };
-    }
-    return { captions: newCaptions, hasUnsavedChanges: true };
-  }),
+  updateCaptionStyle: (index, styleUpdates) => {
+    get().saveToHistory();
+    
+    set((state) => {
+      const newCaptions = [...state.captions];
+      if (newCaptions[index]) {
+        newCaptions[index] = {
+          ...newCaptions[index],
+          style: { ...(newCaptions[index].style || state.defaultCaptionStyle), ...styleUpdates } as CaptionStyle
+        };
+      }
+      return { captions: newCaptions, hasUnsavedChanges: true };
+    });
+  },
 
   setDefaultCaptionStyle: (style) => set((state) => ({
     defaultCaptionStyle: { ...state.defaultCaptionStyle, ...style },
     hasUnsavedChanges: true
   })),
 
-  setAudio: (url) => set({ 
-    audioUrl: url,
-    hasUnsavedChanges: true 
-  }),
+  // ========== AUDIO MANAGEMENT ==========
+
+  setAudio: (url, duration) => {
+    get().saveToHistory();
+    
+    set({ 
+      audioUrl: url,
+      audioDuration: duration, // FIXED: Store actual audio duration
+      hasUnsavedChanges: true 
+    });
+  },
 
   setVoiceSettings: (settings) => set((state) => ({
     voiceSettings: { ...state.voiceSettings, ...settings },
     hasUnsavedChanges: true
   })),
   
+  // ========== PLAYBACK CONTROLS ==========
+
   setIsPlaying: (isPlaying) => {
     const state = get();
     if (isPlaying && state.currentTime >= state.duration) {
@@ -273,7 +396,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ zoomLevel: clamped });
   },
 
-  // ========== CLIPBOARD & EDITING OPERATIONS ==========
+  // ========== CLIPBOARD & EDITING ==========
 
   copyClip: (type, index) => {
     const state = get();
@@ -285,7 +408,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         trim: { ...state.videoTrim }
       };
     } else if (type === 'audio' && state.audioUrl) {
-      data = { url: state.audioUrl };
+      data = { 
+        url: state.audioUrl,
+        duration: state.audioDuration 
+      };
     } else if (type === 'caption' && index !== undefined && state.captions[index]) {
       data = { ...state.captions[index] };
     }
@@ -300,26 +426,20 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   cutClip: (type, index) => {
     const state = get();
-    
-    // First copy
     state.copyClip(type, index);
-    
-    // Then delete
     state.deleteClip(type, index);
   },
 
   pasteClip: (atTime) => {
     const state = get();
     
-    if (!state.clipboard) {
-      console.warn('Clipboard is empty');
-      return;
-    }
+    if (!state.clipboard) return;
+
+    get().saveToHistory();
 
     const { type, data } = state.clipboard;
 
     if (type === 'caption') {
-      // Paste caption at current time
       const duration = data.end - data.start;
       const newCaption: Caption = {
         ...data,
@@ -332,27 +452,30 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         hasUnsavedChanges: true
       }));
     } else if (type === 'audio') {
-      // For now, replace audio (could be enhanced to support multiple audio tracks)
-      set({ audioUrl: data.url, hasUnsavedChanges: true });
+      set({ 
+        audioUrl: data.url,
+        audioDuration: data.duration,
+        hasUnsavedChanges: true 
+      });
     }
-    // Video pasting is more complex - would need multi-track support
   },
 
   deleteClip: (type, index) => {
-    const state = get();
+    get().saveToHistory();
 
     if (type === 'video') {
-      // Clear video
       set({ 
         originalVideoUrl: null, 
         videoTrim: { start: 0, end: 60 },
         hasUnsavedChanges: true 
       });
     } else if (type === 'audio') {
-      // Clear audio
-      set({ audioUrl: null, hasUnsavedChanges: true });
+      set({ 
+        audioUrl: null,
+        audioDuration: null,
+        hasUnsavedChanges: true 
+      });
     } else if (type === 'caption' && index !== undefined) {
-      // Delete caption
       set((s) => ({
         captions: s.captions.filter((_, i) => i !== index),
         hasUnsavedChanges: true
@@ -363,7 +486,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   splitClipAtPlayhead: (time) => {
     const state = get();
 
-    // Find caption at playhead
+    get().saveToHistory();
+
     const captionIndex = state.captions.findIndex(
       c => time >= c.start && time <= c.end
     );
@@ -371,7 +495,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     if (captionIndex !== -1) {
       const caption = state.captions[captionIndex];
       
-      // Split caption into two
       const firstPart: Caption = {
         ...caption,
         end: time
@@ -387,17 +510,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       newCaptions.splice(captionIndex + 1, 0, secondPart);
 
       set({ captions: newCaptions, hasUnsavedChanges: true });
-    } else {
-      // Could also split video trim here
-      const { videoTrim } = state;
-      
-      if (time > videoTrim.start && time < videoTrim.end) {
-        // For now, just set trim end at playhead
-        set({ 
-          videoTrim: { start: videoTrim.start, end: time },
-          hasUnsavedChanges: true 
-        });
-      }
     }
   },
 
@@ -413,6 +525,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       generatedScript: state.generatedScript,
       captions: state.captions,
       audioUrl: state.audioUrl,
+      audioDuration: state.audioDuration, // ADDED
       voiceSettings: state.voiceSettings,
       defaultCaptionStyle: state.defaultCaptionStyle,
       duration: state.duration,
@@ -451,6 +564,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       set({
         ...project,
         mediaLibrary: project.mediaLibrary || [],
+        audioDuration: project.audioDuration || null, // ADDED
         isPlaying: false,
         currentTime: 0,
         fps: 30,
@@ -458,6 +572,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         hasUnsavedChanges: false,
         isAutoSaving: false,
         clipboard: null,
+        history: [],
+        historyIndex: -1,
+        canUndo: false,
+        canRedo: false,
       });
     } else {
       set({

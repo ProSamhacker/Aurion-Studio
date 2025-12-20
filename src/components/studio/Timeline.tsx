@@ -1,6 +1,6 @@
-// src/components/studio/Timeline.tsx - PROFESSIONAL VIDEO EDITOR VERSION
+// src/components/studio/Timeline.tsx - COMPLETE PROFESSIONAL VERSION
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Video as VideoIcon, Music, GripVertical, Loader2, Scissors, Copy, Trash2, Split } from 'lucide-react';
+import { Video as VideoIcon, Music, GripVertical, Loader2, Scissors, Copy, Trash2, Split, Undo2, Redo2, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTimelineStore } from '@/core/stores/useTimelineStore';
 import { formatTime } from '@/core/utils/time';
 import { generateVideoThumbnails } from '@/core/utils/media';
@@ -15,13 +15,15 @@ interface ContextMenu {
 export const Timeline = () => {
   const viewportRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
+  const timelineContentRef = useRef<HTMLDivElement>(null);
   
   const { 
     originalVideoUrl, audioUrl, captions, 
     duration, zoomLevel, setZoomLevel, isPlaying,
     videoTrim, setVideoTrim, setCurrentTime, setOriginalVideo,
     setDuration, currentTime, saveProject, splitClipAtPlayhead,
-    copyClip, pasteClip, deleteClip, cutClip
+    copyClip, pasteClip, deleteClip, cutClip, undo, redo,
+    canUndo, canRedo, audioDuration
   } = useTimelineStore();
 
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
@@ -30,42 +32,39 @@ export const Timeline = () => {
   const [isLoadingThumbnails, setIsLoadingThumbnails] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [selectedClip, setSelectedClip] = useState<{ type: string; index?: number } | null>(null);
+  const [isDraggingAudio, setIsDraggingAudio] = useState(false);
+  const [audioOffset, setAudioOffset] = useState(0);
 
-  // --- DYNAMIC TIMELINE LENGTH ---
-  // Calculate actual content duration
+  // Calculate actual content duration dynamically
   const calculateContentDuration = useCallback(() => {
     let maxDuration = 0;
     
-    // Video duration
     if (videoTrim) {
       maxDuration = Math.max(maxDuration, videoTrim.end);
     }
     
-    // Audio duration (if exists and longer)
-    if (audioUrl && duration > maxDuration) {
-      maxDuration = duration;
+    // FIXED: Use actual audio duration, not project duration
+    if (audioUrl && audioDuration) {
+      maxDuration = Math.max(maxDuration, audioDuration + audioOffset);
     }
     
-    // Caption end times
     if (captions.length > 0) {
       const lastCaptionEnd = Math.max(...captions.map(c => c.end));
       maxDuration = Math.max(maxDuration, lastCaptionEnd);
     }
     
-    return Math.max(maxDuration, 10); // Minimum 10 seconds
-  }, [videoTrim, audioUrl, duration, captions]);
+    return Math.max(maxDuration, 10);
+  }, [videoTrim, audioUrl, audioDuration, captions, audioOffset]);
 
   const contentDuration = calculateContentDuration();
   
-  // --- CONFIG ---
-  const START_PADDING = 40; // Increased for better UX
-  const END_PADDING = 300; // Extra space for adding content
+  const START_PADDING = 40;
+  const END_PADDING = 300;
   const totalWidth = (contentDuration * zoomLevel) + START_PADDING + END_PADDING;
 
-  // --- KEYBOARD SHORTCUTS ---
+  // ========== KEYBOARD SHORTCUTS ==========
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -79,40 +78,47 @@ export const Timeline = () => {
         useTimelineStore.setState({ isPlaying: !isPlaying });
       }
       
-      // Ctrl/Cmd + S - Save
+      // Ctrl + S - Save
       if (modifier && e.key === 's') {
         e.preventDefault();
         saveProject();
-        console.log('✅ Project saved');
       }
       
-      // Ctrl/Cmd + C - Copy
+      // Ctrl + Z - Undo
+      if (modifier && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      
+      // Ctrl + Y or Ctrl + Shift + Z - Redo
+      if ((modifier && e.key === 'y') || (modifier && e.shiftKey && e.key === 'z')) {
+        e.preventDefault();
+        redo();
+      }
+      
+      // Ctrl + C - Copy
       if (modifier && e.key === 'c' && selectedClip) {
         e.preventDefault();
         copyClip(selectedClip.type, selectedClip.index);
-        console.log('📋 Clip copied');
       }
       
-      // Ctrl/Cmd + V - Paste
+      // Ctrl + V - Paste
       if (modifier && e.key === 'v') {
         e.preventDefault();
         pasteClip(currentTime);
-        console.log('📌 Clip pasted');
       }
       
-      // Ctrl/Cmd + X - Cut
+      // Ctrl + X - Cut
       if (modifier && e.key === 'x' && selectedClip) {
         e.preventDefault();
         cutClip(selectedClip.type, selectedClip.index);
-        console.log('✂️ Clip cut');
       }
       
-      // Delete/Backspace - Delete selected clip
+      // Delete - Delete selected clip
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedClip) {
         e.preventDefault();
         deleteClip(selectedClip.type, selectedClip.index);
         setSelectedClip(null);
-        console.log('🗑️ Clip deleted');
       }
       
       // Arrow Left - Jump back 1s
@@ -143,17 +149,27 @@ export const Timeline = () => {
       if (e.key === 's' && !modifier && selectedClip) {
         e.preventDefault();
         splitClipAtPlayhead(currentTime);
-        console.log('✂️ Split at playhead');
+      }
+      
+      // Plus/Minus - Zoom
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        setZoomLevel(Math.min(300, zoomLevel * 1.2));
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        setZoomLevel(Math.max(10, zoomLevel * 0.8));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, currentTime, selectedClip, contentDuration, saveProject, copyClip, pasteClip, cutClip, deleteClip, splitClipAtPlayhead, setCurrentTime]);
+  }, [isPlaying, currentTime, selectedClip, contentDuration, zoomLevel]);
 
-  // --- CONTEXT MENU ---
+  // ========== CONTEXT MENU ==========
   const handleContextMenu = useCallback((e: React.MouseEvent, type: 'video' | 'audio' | 'caption', index?: number) => {
     e.preventDefault();
+    e.stopPropagation();
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -163,14 +179,13 @@ export const Timeline = () => {
     setSelectedClip({ type, index });
   }, []);
 
-  // Close context menu
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
     window.addEventListener('click', handleClick);
     return () => window.removeEventListener('click', handleClick);
   }, []);
 
-  // --- THUMBNAIL GENERATION ---
+  // ========== THUMBNAIL GENERATION ==========
   useEffect(() => {
     if (!originalVideoUrl) {
       setThumbnails([]);
@@ -192,18 +207,17 @@ export const Timeline = () => {
       });
   }, [originalVideoUrl, contentDuration]);
 
-  // --- SMOOTH PLAYHEAD ANIMATION ---
+  // ========== SMOOTH PLAYHEAD ANIMATION ==========
   useEffect(() => {
     let rafId: number;
     let lastTime = performance.now();
 
     const animate = (currentTimestamp: number) => {
       const state = useTimelineStore.getState();
-      const deltaTime = (currentTimestamp - lastTime) / 1000; // Convert to seconds
+      const deltaTime = (currentTimestamp - lastTime) / 1000;
       lastTime = currentTimestamp;
 
       if (state.isPlaying) {
-        // Smooth frame-independent animation
         const newTime = Math.min(state.currentTime + deltaTime, contentDuration);
         
         if (newTime >= contentDuration) {
@@ -213,13 +227,12 @@ export const Timeline = () => {
         }
       }
 
-      // Update playhead position
       const currentPx = (state.currentTime * state.zoomLevel) + START_PADDING;
       if (playheadRef.current) {
         playheadRef.current.style.transform = `translateX(${currentPx}px)`;
       }
 
-      // Auto-scroll viewport
+      // FIXED: Smooth auto-scroll with playhead
       if (state.isPlaying && viewportRef.current) {
         const viewport = viewportRef.current;
         const viewportWidth = viewport.clientWidth;
@@ -230,7 +243,7 @@ export const Timeline = () => {
         if (relativePos > triggerPoint) {
           viewport.scrollTo({
             left: currentPx - triggerPoint,
-            behavior: 'smooth'
+            behavior: 'auto' // Changed to auto for smoother experience
           });
         }
       }
@@ -242,7 +255,7 @@ export const Timeline = () => {
     return () => cancelAnimationFrame(rafId);
   }, [contentDuration, zoomLevel]);
 
-  // --- ZOOM & SCROLL ---
+  // ========== ZOOM & SCROLL ==========
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -252,12 +265,26 @@ export const Timeline = () => {
       e.stopPropagation();
 
       if (e.ctrlKey || e.metaKey) {
-        // Zoom
+        // ZOOM with Ctrl+Scroll
+        const rect = viewport.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const scrollLeft = viewport.scrollLeft;
+        
+        // Calculate position before zoom
+        const timeAtMouse = (mouseX + scrollLeft - START_PADDING) / zoomLevel;
+        
+        // Apply zoom
         const zoomDelta = e.deltaY > 0 ? 0.85 : 1.15;
-        const newZoom = Math.max(10, Math.min(300, useTimelineStore.getState().zoomLevel * zoomDelta));
+        const newZoom = Math.max(10, Math.min(300, zoomLevel * zoomDelta));
         setZoomLevel(newZoom);
+        
+        // Keep mouse position stable
+        requestAnimationFrame(() => {
+          const newScrollLeft = (timeAtMouse * newZoom) + START_PADDING - mouseX;
+          viewport.scrollLeft = newScrollLeft;
+        });
       } else {
-        // Scroll
+        // SCROLL - Horizontal scroll with vertical wheel
         const scrollSpeed = e.shiftKey ? 3 : 1;
         viewport.scrollLeft += e.deltaY * scrollSpeed;
       }
@@ -265,9 +292,9 @@ export const Timeline = () => {
 
     viewport.addEventListener('wheel', handleWheel, { passive: false });
     return () => viewport.removeEventListener('wheel', handleWheel);
-  }, [setZoomLevel]);
+  }, [zoomLevel, setZoomLevel]);
 
-  // --- MOUSE INTERACTION ---
+  // ========== MOUSE INTERACTION ==========
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!viewportRef.current) return;
@@ -290,20 +317,26 @@ export const Timeline = () => {
           const newEnd = Math.max(videoTrim.start + 0.5, timeAtMouse);
           setVideoTrim(videoTrim.start, newEnd);
           
-          // Update duration if extending
           if (newEnd > duration) {
             setDuration(newEnd);
           }
         }
+      }
+
+      // FIXED: Audio dragging
+      if (isDraggingAudio) {
+        const newOffset = timeAtMouse;
+        setAudioOffset(Math.max(0, newOffset));
       }
     };
 
     const handleMouseUp = () => {
       setIsDraggingPlayhead(false);
       setIsTrimming(null);
+      setIsDraggingAudio(false);
     };
 
-    if (isDraggingPlayhead || isTrimming) {
+    if (isDraggingPlayhead || isTrimming || isDraggingAudio) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
@@ -312,9 +345,9 @@ export const Timeline = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingPlayhead, isTrimming, videoTrim, setCurrentTime, setVideoTrim, contentDuration, duration, setDuration]);
+  }, [isDraggingPlayhead, isTrimming, isDraggingAudio, videoTrim, setCurrentTime, setVideoTrim, contentDuration, duration, setDuration]);
 
-  // --- CLICK TO SEEK ---
+  // ========== CLICK TO SEEK ==========
   const handleTimelineClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('.no-seek')) return;
@@ -334,7 +367,7 @@ export const Timeline = () => {
     }
   };
 
-  // --- DROP HANDLER ---
+  // ========== DROP HANDLER ==========
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const url = e.dataTransfer.getData('video/url');
@@ -343,17 +376,20 @@ export const Timeline = () => {
     }
   };
 
-  // --- RULER TICKS ---
+  // ========== RULER TICKS ==========
   const tickInterval = zoomLevel > 80 ? 1 : zoomLevel > 40 ? 2 : zoomLevel > 20 ? 5 : 10;
   const ticks = [];
   for (let i = 0; i <= contentDuration; i += tickInterval) {
     ticks.push(i);
   }
 
-  // --- VIDEO TRACK DIMENSIONS ---
   const videoTrackLeft = START_PADDING;
   const videoDuration = videoTrim.end - videoTrim.start;
   const videoTrackWidth = videoDuration * zoomLevel;
+  
+  // FIXED: Audio track width based on actual audio duration
+  const audioTrackWidth = audioDuration ? (audioDuration * zoomLevel) : videoTrackWidth;
+  const audioTrackLeft = START_PADDING + (audioOffset * zoomLevel);
 
   if (!originalVideoUrl) {
     return (
@@ -366,18 +402,67 @@ export const Timeline = () => {
   }
 
   return (
-    <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] select-none relative shrink-0 pr-6 z-0">
+    <div className="flex flex-col h-72 bg-[#121212] border-t border-[#1f1f1f] select-none relative shrink-0 z-0">
       
-      {/* Keyboard Shortcuts Tooltip */}
-      <div className="absolute top-2 right-8 text-[10px] text-gray-600 bg-black/50 px-2 py-1 rounded z-50 font-mono">
-        <span className="text-gray-500">Shortcuts:</span> Space=Play | S=Split | Ctrl+S=Save | ←→=Navigate
+      {/* TIMELINE CONTROLS BAR */}
+      <div className="h-12 bg-[#0a0a0a] border-b border-[#1f1f1f] flex items-center justify-between px-4 shrink-0">
+        
+        {/* Undo/Redo */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className="p-2 text-gray-400 hover:text-white hover:bg-[#1f1f1f] rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed group"
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className="p-2 text-gray-400 hover:text-white hover:bg-[#1f1f1f] rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed group"
+            title="Redo (Ctrl+Y)"
+          >
+            <Redo2 className="w-4 h-4" />
+          </button>
+          <div className="h-6 w-px bg-gray-800 mx-1"></div>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setZoomLevel(Math.max(10, zoomLevel * 0.8))}
+            className="p-2 text-gray-400 hover:text-white hover:bg-[#1f1f1f] rounded-lg transition"
+            title="Zoom Out (-)"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </button>
+          
+          <div className="flex items-center gap-2 bg-[#1a1a1a] px-3 py-1 rounded-lg border border-gray-800">
+            <span className="text-xs text-gray-500 font-mono">{Math.round(zoomLevel)}px/s</span>
+          </div>
+          
+          <button
+            onClick={() => setZoomLevel(Math.min(300, zoomLevel * 1.2))}
+            className="p-2 text-gray-400 hover:text-white hover:bg-[#1f1f1f] rounded-lg transition"
+            title="Zoom In (+)"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="text-[10px] text-gray-600 font-mono">
+          Ctrl+Scroll to zoom • Shift+Scroll to scroll fast
+        </div>
       </div>
 
+      {/* TIMELINE VIEWPORT */}
       <div 
         ref={viewportRef} 
-        className="flex-1 overflow-x-auto overflow-y-hidden relative modern-scrollbar rounded-xl"
+        className="flex-1 overflow-x-auto overflow-y-hidden relative modern-scrollbar"
       >
         <div 
+          ref={timelineContentRef}
           className="h-full relative" 
           style={{ width: `${totalWidth}px`, minWidth: '100%' }}
           onMouseDown={handleTimelineClick}
@@ -413,7 +498,6 @@ export const Timeline = () => {
             <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
             <div className="absolute -top-0 -left-2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[10px] border-t-red-500 transform transition-transform group-hover:scale-125 drop-shadow-lg"></div>
             
-            {/* Time tooltip */}
             <div className="absolute -top-8 left-3 bg-red-500 text-white text-[10px] font-mono px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none">
               {formatTime(currentTime)}
             </div>
@@ -436,7 +520,6 @@ export const Timeline = () => {
             >
               <div className="absolute inset-y-1 inset-x-0 bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] rounded-lg border-2 border-purple-500/40 overflow-hidden select-none group-hover:border-purple-400 transition-all shadow-lg">
                 
-                {/* Thumbnails */}
                 {isLoadingThumbnails ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]">
                     <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
@@ -454,7 +537,6 @@ export const Timeline = () => {
                   </div>
                 ) : null}
                 
-                {/* Label */}
                 <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-90 z-10 pointer-events-none">
                   <VideoIcon className="w-5 h-5 text-purple-300 drop-shadow-lg"/>
                   <span className="text-xs text-white font-bold tracking-wide drop-shadow-lg">
@@ -462,7 +544,6 @@ export const Timeline = () => {
                   </span>
                 </div>
 
-                {/* Trim indicators */}
                 {videoTrim.start > 0 && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400"></div>
                 )}
@@ -478,7 +559,7 @@ export const Timeline = () => {
                   e.stopPropagation(); 
                   setIsTrimming('start'); 
                 }}
-                title="Trim Start (drag to adjust)"
+                title="Trim Start"
               >
                 <GripVertical className="w-4 h-4 text-white" />
               </div>
@@ -489,35 +570,40 @@ export const Timeline = () => {
                   e.stopPropagation(); 
                   setIsTrimming('end'); 
                 }}
-                title="Trim End (drag to adjust)"
+                title="Trim End"
               >
                 <GripVertical className="w-4 h-4 text-white" />
               </div>
             </div>
 
-            {/* AUDIO TRACK */}
-            {audioUrl && (
+            {/* AUDIO TRACK - FIXED WITH PROPER DURATION */}
+            {audioUrl && audioDuration && (
               <div 
-                className={`h-12 relative rounded-lg bg-gradient-to-br from-[#1a2a3a] to-[#1a1a2a] border-2 border-blue-500/40 overflow-hidden group hover:border-blue-500/70 transition-all no-seek shadow-lg ${
+                className={`h-12 relative rounded-lg bg-gradient-to-br from-[#1a2a3a] to-[#1a1a2a] border-2 border-blue-500/40 overflow-hidden group hover:border-blue-500/70 transition-all no-seek shadow-lg cursor-move ${
                   selectedClip?.type === 'audio' ? 'ring-2 ring-blue-500' : ''
                 }`}
                 style={{ 
-                  left: `${START_PADDING}px`, 
-                  width: `${videoTrackWidth}px` 
+                  left: `${audioTrackLeft}px`, 
+                  width: `${audioTrackWidth}px` 
                 }}
                 onClick={() => setSelectedClip({ type: 'audio' })}
                 onContextMenu={(e) => handleContextMenu(e, 'audio')}
+                onMouseDown={(e) => {
+                  if (e.button === 0) {
+                    e.stopPropagation();
+                    setIsDraggingAudio(true);
+                  }
+                }}
               >
-                <div className="absolute inset-0 flex items-center px-4 gap-2 z-10">
+                <div className="absolute inset-0 flex items-center px-4 gap-2 z-10 pointer-events-none">
                   <div className="bg-blue-500/30 p-1.5 rounded-lg border border-blue-400/50">
                     <Music className="w-4 h-4 text-blue-300" />
                   </div>
                   <span className="text-xs text-blue-100 font-bold tracking-wide drop-shadow">
-                    AI Voiceover
+                    AI Voiceover • {formatTime(audioDuration)}
                   </span>
                 </div>
                 
-                {/* Waveform visualization */}
                 <div className="absolute bottom-0 left-0 right-0 h-full opacity-20 flex items-end gap-1 px-3">
                   {Array.from({ length: 60 }).map((_, i) => (
                     <div 
@@ -527,6 +613,9 @@ export const Timeline = () => {
                     ></div>
                   ))}
                 </div>
+
+                {/* Drag indicator */}
+                <div className="absolute top-1 left-1 right-1 h-1 bg-blue-400/50 rounded-full opacity-0 group-hover:opacity-100 transition"></div>
               </div>
             )}
 
@@ -567,7 +656,6 @@ export const Timeline = () => {
           </div>
         </div>
       </div>
-
       {/* CONTEXT MENU */}
       {contextMenu && (
         <div 

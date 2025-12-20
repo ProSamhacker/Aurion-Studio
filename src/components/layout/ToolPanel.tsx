@@ -1,3 +1,4 @@
+// src/components/layout/ToolPanel.tsx - FIXED WITH AUDIO DURATION
 import { useTimelineStore } from '@/core/stores/useTimelineStore';
 import { Loader2, Mic, Bot, RefreshCw, Plus, Trash2, Edit3, Film, Image as ImageIcon, GripVertical } from 'lucide-react';
 import EnhancedVoicePanel from '@/components/NEW/VoiceControlPanel';
@@ -11,11 +12,35 @@ interface ToolPanelProps {
   isTranscribing: boolean;
   previewVoiceUrl: string | null;
   handleGenerateVoice: () => void;
-  handleApplyVoice: () => void;
+  handleApplyVoice: () => void; // This needs to be updated in parent
   handleAutoCaption: () => void;
   handleRegenerateScript: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+// HELPER: Extract audio duration from audio URL
+async function getAudioDuration(audioUrl: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(audioUrl);
+    
+    audio.addEventListener('loadedmetadata', () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        resolve(audio.duration);
+      } else {
+        reject(new Error('Invalid audio duration'));
+      }
+    });
+    
+    audio.addEventListener('error', () => {
+      reject(new Error('Failed to load audio'));
+    });
+    
+    audio.load();
+    
+    // Timeout after 10 seconds
+    setTimeout(() => reject(new Error('Timeout loading audio')), 10000);
+  });
 }
 
 export const ToolPanel = ({ 
@@ -28,7 +53,7 @@ export const ToolPanel = ({
     generatedScript, setScript, captions, 
     voiceSettings, setVoiceSettings,
     defaultCaptionStyle, setDefaultCaptionStyle, updateCaption, 
-    mediaLibrary, setOriginalVideo, originalVideoUrl
+    mediaLibrary, setOriginalVideo, originalVideoUrl, setAudio
   } = useTimelineStore();
 
   const handleLineUpdate = (index: number, newText: string, timestamp: string | null) => {
@@ -37,16 +62,38 @@ export const ToolPanel = ({
     setScript(lines.join('\n'));
   };
 
-  // Drag handler for media items
   const handleDragStart = (e: React.DragEvent, url: string) => {
      e.dataTransfer.setData('video/url', url);
      e.dataTransfer.effectAllowed = 'copy';
   };
 
+  // FIXED: Apply voiceover WITH duration extraction
+  const handleApplyVoiceWithDuration = async () => {
+    if (!previewVoiceUrl) return;
+    
+    try {
+      // Extract audio duration
+      const duration = await getAudioDuration(previewVoiceUrl);
+      console.log(`✅ Audio duration: ${duration.toFixed(2)}s`);
+      
+      // Apply to timeline with duration
+      setAudio(previewVoiceUrl, duration);
+      
+      // Call parent's cleanup handler
+      handleApplyVoice();
+      
+    } catch (error) {
+      console.error('Failed to get audio duration:', error);
+      // Fallback: apply without duration (will use video duration)
+      setAudio(previewVoiceUrl, null as any);
+      handleApplyVoice();
+    }
+  };
+
   return (
     <div className="w-[360px] bg-[#141414] border-r border-[#1f1f1f] h-screen flex flex-col shrink-0 z-20 transition-all duration-300">
       
-      {/* --- 1. MEDIA LIBRARY PANEL --- */}
+      {/* MEDIA LIBRARY PANEL */}
       {activeTool === 'upload' && (
         <div className="flex flex-col h-full">
           <div className="p-5 border-b border-[#1f1f1f] flex justify-between items-center bg-[#141414] sticky top-0 z-10">
@@ -69,7 +116,7 @@ export const ToolPanel = ({
               </div>
             </div>
 
-            {/* Media Menu List (Draggable) */}
+            {/* Media List */}
             <div className="space-y-2">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Library (Drag to Timeline)</p>
                 {mediaLibrary.map((media) => (
@@ -82,7 +129,6 @@ export const ToolPanel = ({
                             originalVideoUrl === media.url ? 'bg-[#1a1a1a] border-purple-500/50' : 'bg-transparent border-transparent hover:border-gray-800'
                         }`}
                     >
-                        {/* Thumbnail */}
                         <div className="w-16 h-10 bg-black rounded overflow-hidden relative border border-gray-800 shrink-0">
                              {media.type === 'video' ? (
                                 <video src={media.url} className="w-full h-full object-cover opacity-80" />
@@ -91,7 +137,6 @@ export const ToolPanel = ({
                              )}
                         </div>
                         
-                        {/* Info */}
                         <div className="flex-1 min-w-0">
                             <p className={`text-xs truncate font-medium ${originalVideoUrl === media.url ? 'text-purple-400' : 'text-gray-300'}`}>
                                 {media.name}
@@ -104,7 +149,6 @@ export const ToolPanel = ({
                             </div>
                         </div>
 
-                        {/* Drag Handle */}
                         <GripVertical className="w-4 h-4 text-gray-600 opacity-0 group-hover:opacity-100 transition" />
                     </div>
                 ))}
@@ -113,7 +157,7 @@ export const ToolPanel = ({
         </div>
       )}
 
-      {/* --- 2. SCRIPT EDITOR PANEL --- */}
+      {/* SCRIPT EDITOR PANEL */}
       {activeTool === 'script' && (
         <div className="flex flex-col h-full">
            <div className="p-5 border-b border-[#1f1f1f] sticky top-0 bg-[#141414] z-10 flex justify-between items-center">
@@ -146,7 +190,7 @@ export const ToolPanel = ({
         </div>
       )}
 
-      {/* --- 3. VOICE STUDIO PANEL --- */}
+      {/* VOICE STUDIO PANEL */}
       {activeTool === 'voice' && (
         <EnhancedVoicePanel
           settings={voiceSettings}
@@ -154,12 +198,12 @@ export const ToolPanel = ({
           onGenerate={handleGenerateVoice}
           isGenerating={isGeneratingVoice}
           previewUrl={previewVoiceUrl}
-          onApply={handleApplyVoice}
+          onApply={handleApplyVoiceWithDuration} // FIXED: Use updated handler
           script={generatedScript}
         />
       )}
 
-      {/* --- 4. CAPTION EDITOR PANEL --- */}
+      {/* CAPTION EDITOR PANEL */}
       {activeTool === 'captions' && (
         <div className="flex flex-col h-full bg-[#141414]">
           <div className="p-5 border-b border-[#1f1f1f]">
@@ -169,7 +213,6 @@ export const ToolPanel = ({
 
           <div className="flex-1 overflow-y-auto modern-scrollbar">
             {captions.length === 0 ? (
-               /* Empty State: Only show Generate Button */
                <div className="h-full flex flex-col items-center justify-center p-6 space-y-6">
                   <div className="w-20 h-20 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-full flex items-center justify-center border border-purple-500/20">
                       <Bot className="w-8 h-8 text-purple-400" />
@@ -191,16 +234,12 @@ export const ToolPanel = ({
                   </button>
                </div>
             ) : (
-                /* Editor UI: Shows ONLY after generation */
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    
-                    {/* Style Editor (Always visible after gen) */}
                     <CaptionStyleEditor
                         style={defaultCaptionStyle}
                         onChange={setDefaultCaptionStyle}
                     />
                     
-                    {/* Transcript List */}
                     <div className="p-4 space-y-2">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Transcript</span>
