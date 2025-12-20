@@ -13,6 +13,7 @@ interface AlignmentStrategy {
   strategy: 'stretch' | 'pace-match' | 'scene-sync' | 'split-audio';
   confidence: number;
   recommendations: string[];
+  newDuration?: number;
 }
 
 interface VideoSegment {
