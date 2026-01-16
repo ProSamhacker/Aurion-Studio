@@ -1,6 +1,6 @@
-// src/components/editor/VideoComposition.tsx - FIXED TRIM LOGIC
-import React from 'react';
-import { AbsoluteFill, Video, Audio, useCurrentFrame, useVideoConfig, Img, OffthreadVideo } from 'remotion';
+// src/components/editor/VideoComposition.tsx - ENHANCED WITH BUFFERING
+import React, { useState, useEffect } from 'react';
+import { AbsoluteFill, Audio, useCurrentFrame, useVideoConfig, OffthreadVideo, Img } from 'remotion';
 
 interface CaptionStyle {
   color: string;
@@ -24,30 +24,25 @@ interface VideoCompositionProps {
   videoUrl: string | null;
   audioUrl: string | null;
   captions: Caption[];
-  videoTrim: { start: number; end: number };
 }
 
 export const VideoComposition: React.FC<VideoCompositionProps> = ({ 
   videoUrl, 
   audioUrl, 
-  captions,
-  videoTrim
+  captions
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const [videoError, setVideoError] = useState(false);
+  const [audioError, setAudioError] = useState(false);
   
-  // Current time in the COMPOSITION (what the user sees)
   const compositionTime = frame / fps;
-  
-  // Current time in the SOURCE VIDEO (accounting for trim)
-  const sourceVideoTime = compositionTime + videoTrim.start;
 
-  // Find active caption (based on composition time, NOT source time)
+  // Find active caption
   const activeCaption = Array.isArray(captions) 
     ? captions.find((c) => compositionTime >= c.start && compositionTime <= c.end)
     : null;
 
-  // Default style fallback
   const defaultStyle: CaptionStyle = {
     color: '#FFFFFF',
     fontSize: 42,
@@ -61,11 +56,6 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
 
   const captionStyle = activeCaption?.style || defaultStyle;
 
-  // CRITICAL FIX: Calculate which frame to show from source video
-  // The video component needs to know WHERE in the source video we are
-  const videoStartFrame = Math.floor(videoTrim.start * fps);
-  
-  // FLEXBOX POSITIONING
   const verticalMap = {
     top: 'justify-start pt-16',
     center: 'justify-center',
@@ -78,19 +68,24 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
     right: 'items-end pr-16'
   };
 
+  // Caption animation based on position in duration
+  const captionProgress = activeCaption 
+    ? (compositionTime - activeCaption.start) / (activeCaption.end - activeCaption.start)
+    : 0;
+  
+  const captionOpacity = Math.min(
+    1,
+    captionProgress < 0.1 ? captionProgress * 10 : // Fade in first 10%
+    captionProgress > 0.9 ? (1 - captionProgress) * 10 : // Fade out last 10%
+    1
+  );
+
   return (
     <AbsoluteFill className="bg-black">
       
       {/* LAYER 1: Video */}
-      {videoUrl ? (
+      {videoUrl && !videoError ? (
         <AbsoluteFill>
-          {/* 
-            CRITICAL: We use startFrom to offset into the source video
-            The frame prop tells Remotion which frame of the SOURCE to show
-            For trimmed video starting at 5s with 30fps: startFrom = 5 * 30 = 150
-            When composition frame=0, we show source frame=150
-            When composition frame=30, we show source frame=180
-          */}
           <OffthreadVideo
             src={videoUrl}
             style={{
@@ -98,40 +93,38 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
               height: '100%',
               objectFit: 'contain'
             }}
-            // Mute original audio if we have AI voiceover
             volume={audioUrl ? 0 : 1}
-            // Start playback at the trim start point
-            startFrom={videoStartFrame}
-            // The current frame in the composition maps to source video frame
-            // Remotion handles this automatically with startFrom
+            onError={() => setVideoError(true)}
           />
         </AbsoluteFill>
       ) : (
         <AbsoluteFill className="bg-[#111] flex items-center justify-center">
-           <span className="text-gray-500 font-mono text-lg">No Video Source</span>
+          <span className="text-gray-500 font-mono text-lg">
+            {videoError ? 'Video Load Error' : 'No Video Source'}
+          </span>
         </AbsoluteFill>
       )}
 
       {/* LAYER 2: AI Voiceover */}
-      {audioUrl && (
+      {audioUrl && !audioError && (
         <Audio 
           src={audioUrl} 
           volume={1}
+          onError={() => setAudioError(true)}
         />
       )}
 
-      {/* LAYER 3: Styled Captions with Animation */}
+      {/* LAYER 3: Animated Captions */}
       {activeCaption && (
         <AbsoluteFill 
           className={`flex flex-col ${verticalMap[captionStyle.position]} ${horizontalMap[captionStyle.textAlign]}`}
-          style={{ opacity: captionStyle.opacity }}
+          style={{ opacity: captionStyle.opacity * captionOpacity }}
         >
           <div 
-            className="px-8 py-4 rounded-2xl shadow-2xl backdrop-blur-sm max-w-[90%] animate-in fade-in slide-in-from-bottom-2 duration-200"
+            className="px-8 py-4 rounded-2xl shadow-2xl backdrop-blur-sm max-w-[90%] transition-all duration-200"
             style={{
               backgroundColor: captionStyle.backgroundColor,
-              // Subtle scale animation based on caption length
-              transform: `scale(${1 - (activeCaption.text.length > 60 ? 0.05 : 0)})`
+              transform: `scale(${0.95 + (captionOpacity * 0.05)}) translateY(${(1 - captionOpacity) * 10}px)`,
             }}
           >
             <p 

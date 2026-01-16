@@ -1,6 +1,56 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0E0E0E;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a #0E0E0E;
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better Focus Styles */
+*:focus-visible {
+  outline: 2px solid #9333ea;
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 2px solid #9333ea;
+  outline-offset: 2px;
+}
+
+/* Prevent text selection on UI elements */
+button,
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -31,23 +81,27 @@ body {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   /* Modern thin scrollbar for panels */
   .modern-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
+
   .modern-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
+
   .modern-scrollbar::-webkit-scrollbar-thumb {
     background: #333;
     border-radius: 3px;
   }
+
   .modern-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #555;
   }

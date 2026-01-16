@@ -1,4 +1,4 @@
-// src/core/stores/useTimelineStore.ts - WITH UNDO/REDO & AUDIO DURATION
+// src/core/stores/useTimelineStore.ts - ENHANCED PREVIEW-ONLY VERSION
 import { create } from 'zustand';
 
 export interface Caption {
@@ -32,6 +32,8 @@ export interface MediaAsset {
   url: string;
   type: 'video' | 'image';
   name: string;
+  duration?: number;
+  thumbnail?: string;
 }
 
 export interface Project {
@@ -42,27 +44,18 @@ export interface Project {
   generatedScript: string;
   captions: Caption[];
   audioUrl: string | null;
-  audioDuration: number | null; // ADDED: Track actual audio length
+  audioDuration: number | null;
   voiceSettings: VoiceSettings;
   defaultCaptionStyle: CaptionStyle;
   duration: number;
-  videoTrim: { start: number; end: number };
   lastSaved: Date;
 }
 
-interface ClipboardData {
-  type: 'video' | 'audio' | 'caption';
-  data: any;
-  index?: number;
-}
-
-// History state for undo/redo
-interface HistoryState {
-  captions: Caption[];
-  videoTrim: { start: number; end: number };
-  audioUrl: string | null;
-  generatedScript: string;
-  duration: number;
+interface BufferState {
+  isBuffering: boolean;
+  bufferProgress: number;
+  videoReady: boolean;
+  audioReady: boolean;
 }
 
 interface TimelineState extends Project {
@@ -73,49 +66,43 @@ interface TimelineState extends Project {
   
   hasUnsavedChanges: boolean;
   isAutoSaving: boolean;
-  clipboard: ClipboardData | null;
   
-  // Undo/Redo
-  history: HistoryState[];
-  historyIndex: number;
-  canUndo: boolean;
-  canRedo: boolean;
-
+  // Enhanced buffering
+  bufferState: BufferState;
+  
+  // Playback quality
+  playbackQuality: 'auto' | 'high' | 'medium' | 'low';
+  
   // Actions
   setOriginalVideo: (url: string) => void;
   addMediaToLibrary: (file: File, url: string) => void;
-  selectMediaFromLibrary: (url: string) => void;
   setDuration: (duration: number) => void;
-  setVideoTrim: (start: number, end: number) => void;
   setScript: (script: string) => void;
   appendScript: (text: string) => void;
   setCaptions: (captions: Caption[]) => void;
   updateCaption: (index: number, updates: Partial<Caption>) => void;
-  updateCaptionStyle: (index: number, style: Partial<CaptionStyle>) => void;
   setDefaultCaptionStyle: (style: Partial<CaptionStyle>) => void;
-  setAudio: (url: string, duration: number) => void; // UPDATED: Accept duration
+  setAudio: (url: string, duration: number) => void;
   setVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   setIsPlaying: (playing: boolean) => void;
   setCurrentTime: (time: number) => void;
   setZoomLevel: (zoom: number) => void;
   
-  // Clipboard & Editing
-  copyClip: (type: string, index?: number) => void;
-  cutClip: (type: string, index?: number) => void;
-  pasteClip: (atTime: number) => void;
-  deleteClip: (type: string, index?: number) => void;
-  splitClipAtPlayhead: (time: number) => void;
+  // Buffer management
+  setBufferState: (state: Partial<BufferState>) => void;
+  resetBuffer: () => void;
   
-  // Undo/Redo
-  undo: () => void;
-  redo: () => void;
-  saveToHistory: () => void;
+  // Quality management
+  setPlaybackQuality: (quality: 'auto' | 'high' | 'medium' | 'low') => void;
   
   // Project management
   saveProject: () => void;
   loadProject: (projectId: string) => void;
   updateProjectName: (name: string) => void;
   resetProject: () => void;
+  
+  // Preload management
+  preloadMedia: () => Promise<void>;
 }
 
 const defaultCaptionStyle: CaptionStyle = {
@@ -137,6 +124,13 @@ const defaultVoiceSettings: VoiceSettings = {
   similarityBoost: 0.75,
 };
 
+const initialBufferState: BufferState = {
+  isBuffering: false,
+  bufferProgress: 0,
+  videoReady: false,
+  audioReady: false,
+};
+
 const initialState = {
   id: '',
   name: 'Untitled Project',
@@ -144,7 +138,7 @@ const initialState = {
   mediaLibrary: [],
   generatedScript: '',
   audioUrl: null,
-  audioDuration: null, // ADDED
+  audioDuration: null,
   captions: [],
   voiceSettings: defaultVoiceSettings,
   defaultCaptionStyle: defaultCaptionStyle,
@@ -153,83 +147,15 @@ const initialState = {
   duration: 60,
   fps: 30,
   zoomLevel: 30,
-  videoTrim: { start: 0, end: 60 },
   lastSaved: new Date(),
   hasUnsavedChanges: false,
   isAutoSaving: false,
-  clipboard: null,
-  history: [],
-  historyIndex: -1,
-  canUndo: false,
-  canRedo: false,
+  bufferState: initialBufferState,
+  playbackQuality: 'auto' as const,
 };
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({
   ...initialState,
-
-  // ========== HISTORY MANAGEMENT ==========
-  
-  saveToHistory: () => {
-    const state = get();
-    
-    const historyState: HistoryState = {
-      captions: JSON.parse(JSON.stringify(state.captions)),
-      videoTrim: { ...state.videoTrim },
-      audioUrl: state.audioUrl,
-      generatedScript: state.generatedScript,
-      duration: state.duration
-    };
-    
-    // Remove any redo history when making new changes
-    const newHistory = state.history.slice(0, state.historyIndex + 1);
-    newHistory.push(historyState);
-    
-    // Limit history to 50 states
-    if (newHistory.length > 50) {
-      newHistory.shift();
-    }
-    
-    set({
-      history: newHistory,
-      historyIndex: newHistory.length - 1,
-      canUndo: true,
-      canRedo: false
-    });
-  },
-
-  undo: () => {
-    const state = get();
-    
-    if (state.historyIndex > 0) {
-      const newIndex = state.historyIndex - 1;
-      const historyState = state.history[newIndex];
-      
-      set({
-        ...historyState,
-        historyIndex: newIndex,
-        canUndo: newIndex > 0,
-        canRedo: true,
-        hasUnsavedChanges: true
-      });
-    }
-  },
-
-  redo: () => {
-    const state = get();
-    
-    if (state.historyIndex < state.history.length - 1) {
-      const newIndex = state.historyIndex + 1;
-      const historyState = state.history[newIndex];
-      
-      set({
-        ...historyState,
-        historyIndex: newIndex,
-        canUndo: true,
-        canRedo: newIndex < state.history.length - 1,
-        hasUnsavedChanges: true
-      });
-    }
-  },
 
   // ========== MEDIA MANAGEMENT ==========
 
@@ -238,13 +164,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       ? `/api/video-proxy?url=${encodeURIComponent(url)}` 
       : url;
     
-    get().saveToHistory();
-    
     set({ 
       originalVideoUrl: proxiedUrl,
       hasUnsavedChanges: true,
-      currentTime: 0 
+      currentTime: 0,
+      bufferState: { ...initialBufferState, isBuffering: true }
     });
+    
+    // Trigger preload
+    get().preloadMedia();
   },
 
   addMediaToLibrary: (file, url) => set((state) => {
@@ -258,37 +186,19 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           id: Math.random().toString(36).substr(2, 9), 
           url, 
           type: file.type.startsWith('video') ? 'video' : 'image', 
-          name: file.name 
+          name: file.name,
+          duration: undefined,
+          thumbnail: undefined
         }
       ],
       hasUnsavedChanges: true
     };
   }),
 
-  selectMediaFromLibrary: (url) => {
-     get().setOriginalVideo(url);
-  },
-
   setDuration: (duration) => {
     const validDuration = Math.max(0.1, duration);
-    
-    get().saveToHistory();
-    
     set({ 
       duration: validDuration,
-      videoTrim: { start: 0, end: validDuration },
-      hasUnsavedChanges: true
-    });
-  },
-
-  setVideoTrim: (start, end) => {
-    const validStart = Math.max(0, start);
-    const validEnd = Math.max(validStart + 0.5, end);
-    
-    get().saveToHistory();
-    
-    set({ 
-      videoTrim: { start: validStart, end: validEnd },
       hasUnsavedChanges: true
     });
   },
@@ -296,8 +206,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   // ========== SCRIPT MANAGEMENT ==========
 
   setScript: (script) => {
-    get().saveToHistory();
-    
     set({ 
       generatedScript: script,
       hasUnsavedChanges: true 
@@ -312,8 +220,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   // ========== CAPTIONS MANAGEMENT ==========
 
   setCaptions: (captions) => {
-    get().saveToHistory();
-    
     set({ 
       captions, 
       hasUnsavedChanges: true
@@ -321,27 +227,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   updateCaption: (index, updates) => {
-    get().saveToHistory();
-    
     set((state) => {
       const newCaptions = [...state.captions];
       if (newCaptions[index]) {
         newCaptions[index] = { ...newCaptions[index], ...updates };
-      }
-      return { captions: newCaptions, hasUnsavedChanges: true };
-    });
-  },
-
-  updateCaptionStyle: (index, styleUpdates) => {
-    get().saveToHistory();
-    
-    set((state) => {
-      const newCaptions = [...state.captions];
-      if (newCaptions[index]) {
-        newCaptions[index] = {
-          ...newCaptions[index],
-          style: { ...(newCaptions[index].style || state.defaultCaptionStyle), ...styleUpdates } as CaptionStyle
-        };
       }
       return { captions: newCaptions, hasUnsavedChanges: true };
     });
@@ -355,13 +244,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   // ========== AUDIO MANAGEMENT ==========
 
   setAudio: (url, duration) => {
-    get().saveToHistory();
-    
     set({ 
       audioUrl: url,
-      audioDuration: duration, // FIXED: Store actual audio duration
-      hasUnsavedChanges: true 
+      audioDuration: duration,
+      hasUnsavedChanges: true,
+      bufferState: { ...get().bufferState, audioReady: false }
     });
+    
+    // Preload audio
+    get().preloadMedia();
   },
 
   setVoiceSettings: (settings) => set((state) => ({
@@ -373,6 +264,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   setIsPlaying: (isPlaying) => {
     const state = get();
+    
+    // Don't play if buffering
+    if (isPlaying && state.bufferState.isBuffering) {
+      console.warn('Cannot play while buffering');
+      return;
+    }
+    
     if (isPlaying && state.currentTime >= state.duration) {
       set({ currentTime: 0, isPlaying: true });
     } else {
@@ -396,122 +294,87 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     set({ zoomLevel: clamped });
   },
 
-  // ========== CLIPBOARD & EDITING ==========
+  // ========== BUFFER MANAGEMENT ==========
 
-  copyClip: (type, index) => {
-    const state = get();
-    let data = null;
+  setBufferState: (updates) => set((state) => ({
+    bufferState: { ...state.bufferState, ...updates }
+  })),
 
-    if (type === 'video' && state.originalVideoUrl) {
-      data = {
-        url: state.originalVideoUrl,
-        trim: { ...state.videoTrim }
-      };
-    } else if (type === 'audio' && state.audioUrl) {
-      data = { 
-        url: state.audioUrl,
-        duration: state.audioDuration 
-      };
-    } else if (type === 'caption' && index !== undefined && state.captions[index]) {
-      data = { ...state.captions[index] };
-    }
+  resetBuffer: () => set({
+    bufferState: initialBufferState
+  }),
 
-    if (data) {
-      set({ 
-        clipboard: { type: type as any, data, index },
-        hasUnsavedChanges: true 
-      });
-    }
-  },
-
-  cutClip: (type, index) => {
-    const state = get();
-    state.copyClip(type, index);
-    state.deleteClip(type, index);
-  },
-
-  pasteClip: (atTime) => {
+  preloadMedia: async () => {
     const state = get();
     
-    if (!state.clipboard) return;
-
-    get().saveToHistory();
-
-    const { type, data } = state.clipboard;
-
-    if (type === 'caption') {
-      const duration = data.end - data.start;
-      const newCaption: Caption = {
-        ...data,
-        start: atTime,
-        end: atTime + duration
-      };
-      
-      set((s) => ({
-        captions: [...s.captions, newCaption].sort((a, b) => a.start - b.start),
-        hasUnsavedChanges: true
-      }));
-    } else if (type === 'audio') {
-      set({ 
-        audioUrl: data.url,
-        audioDuration: data.duration,
-        hasUnsavedChanges: true 
-      });
+    set({ bufferState: { ...state.bufferState, isBuffering: true, bufferProgress: 0 }});
+    
+    const promises: Promise<void>[] = [];
+    
+    // Preload video
+    if (state.originalVideoUrl) {
+      promises.push(
+        new Promise((resolve) => {
+          const video = document.createElement('video');
+          video.preload = 'auto';
+          video.src = state.originalVideoUrl!;
+          
+          video.addEventListener('canplaythrough', () => {
+            set((s) => ({ 
+              bufferState: { ...s.bufferState, videoReady: true }
+            }));
+            resolve();
+          });
+          
+          video.addEventListener('error', () => {
+            console.error('Video preload failed');
+            resolve();
+          });
+          
+          video.load();
+        })
+      );
     }
+    
+    // Preload audio
+    if (state.audioUrl) {
+      promises.push(
+        new Promise((resolve) => {
+          const audio = new Audio();
+          audio.preload = 'auto';
+          audio.src = state.audioUrl!;
+          
+          audio.addEventListener('canplaythrough', () => {
+            set((s) => ({ 
+              bufferState: { ...s.bufferState, audioReady: true }
+            }));
+            resolve();
+          });
+          
+          audio.addEventListener('error', () => {
+            console.error('Audio preload failed');
+            resolve();
+          });
+          
+          audio.load();
+        })
+      );
+    }
+    
+    await Promise.all(promises);
+    
+    set((s) => ({ 
+      bufferState: { 
+        ...s.bufferState, 
+        isBuffering: false, 
+        bufferProgress: 100 
+      }
+    }));
   },
 
-  deleteClip: (type, index) => {
-    get().saveToHistory();
+  // ========== QUALITY MANAGEMENT ==========
 
-    if (type === 'video') {
-      set({ 
-        originalVideoUrl: null, 
-        videoTrim: { start: 0, end: 60 },
-        hasUnsavedChanges: true 
-      });
-    } else if (type === 'audio') {
-      set({ 
-        audioUrl: null,
-        audioDuration: null,
-        hasUnsavedChanges: true 
-      });
-    } else if (type === 'caption' && index !== undefined) {
-      set((s) => ({
-        captions: s.captions.filter((_, i) => i !== index),
-        hasUnsavedChanges: true
-      }));
-    }
-  },
-
-  splitClipAtPlayhead: (time) => {
-    const state = get();
-
-    get().saveToHistory();
-
-    const captionIndex = state.captions.findIndex(
-      c => time >= c.start && time <= c.end
-    );
-
-    if (captionIndex !== -1) {
-      const caption = state.captions[captionIndex];
-      
-      const firstPart: Caption = {
-        ...caption,
-        end: time
-      };
-      
-      const secondPart: Caption = {
-        ...caption,
-        start: time
-      };
-
-      const newCaptions = [...state.captions];
-      newCaptions[captionIndex] = firstPart;
-      newCaptions.splice(captionIndex + 1, 0, secondPart);
-
-      set({ captions: newCaptions, hasUnsavedChanges: true });
-    }
-  },
+  setPlaybackQuality: (quality) => set({ playbackQuality: quality }),
 
   // ========== PROJECT MANAGEMENT ==========
 
@@ -525,11 +388,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       generatedScript: state.generatedScript,
       captions: state.captions,
       audioUrl: state.audioUrl,
-      audioDuration: state.audioDuration, // ADDED
+      audioDuration: state.audioDuration,
       voiceSettings: state.voiceSettings,
       defaultCaptionStyle: state.defaultCaptionStyle,
       duration: state.duration,
-      videoTrim: state.videoTrim,
       lastSaved: new Date(),
     };
     
@@ -564,19 +426,19 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       set({
         ...project,
         mediaLibrary: project.mediaLibrary || [],
-        audioDuration: project.audioDuration || null, // ADDED
+        audioDuration: project.audioDuration || null,
         isPlaying: false,
         currentTime: 0,
         fps: 30,
         zoomLevel: 30,
         hasUnsavedChanges: false,
         isAutoSaving: false,
-        clipboard: null,
-        history: [],
-        historyIndex: -1,
-        canUndo: false,
-        canRedo: false,
+        bufferState: initialBufferState,
+        playbackQuality: 'auto',
       });
+      
+      // Preload after loading
+      get().preloadMedia();
     } else {
       set({
         ...initialState,
@@ -587,5 +449,6 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   updateProjectName: (name) => set({ name, hasUnsavedChanges: true }),
+  
   resetProject: () => set(initialState),
 }));

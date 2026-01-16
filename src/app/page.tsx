@@ -17,6 +17,7 @@ const Dashboard = () => {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [editingProject, setEditingProject] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Load projects from localStorage
   useEffect(() => {
@@ -29,6 +30,7 @@ const Dashboard = () => {
           lastEdited: new Date(p.lastEdited)
         })));
       }
+      setIsLoaded(true);
     };
     loadProjects();
   }, []);
@@ -41,11 +43,11 @@ const Dashboard = () => {
       lastEdited: new Date(),
       duration: 0
     };
-    
+
     const updatedProjects = [newProject, ...projects];
     setProjects(updatedProjects);
     localStorage.setItem('aura-projects', JSON.stringify(updatedProjects));
-    
+
     // Navigate to project
     router.push(`/project/${newProject.id}`);
   };
@@ -60,14 +62,14 @@ const Dashboard = () => {
       const updatedProjects = projects.filter(p => p.id !== projectId);
       setProjects(updatedProjects);
       localStorage.setItem('aura-projects', JSON.stringify(updatedProjects));
-      
+
       // Also delete project-specific data
       localStorage.removeItem(`aura-project-${projectId}`);
     }
   };
 
   const handleRenameProject = (projectId: string, newName: string) => {
-    const updatedProjects = projects.map(p => 
+    const updatedProjects = projects.map(p =>
       p.id === projectId ? { ...p, name: newName } : p
     );
     setProjects(updatedProjects);
@@ -76,19 +78,35 @@ const Dashboard = () => {
   };
 
   const formatDate = (date: Date) => {
+    if (!isLoaded) return '...';
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    
+    const days = Math.floor(hours / 24);
+
     if (hours < 1) return 'Just now';
     if (hours < 24) return `${hours}h ago`;
-    if (hours < 48) return 'Yesterday';
-    return date.toLocaleDateString();
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
+
+  // Show loading state to prevent hydration mismatch
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen bg-[#0E0E0E] text-white font-sans items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+          <p className="text-gray-400 text-sm">Loading Aura Studio...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-[#0E0E0E] text-white font-sans">
-      
+
       {/* Sidebar */}
       <div className="w-64 border-r border-[#1f1f1f] flex flex-col p-4 shrink-0">
         <div className="flex items-center gap-2 mb-8 px-2 text-purple-500 font-bold text-xl tracking-wider">
@@ -112,14 +130,14 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        
+
         {/* Header */}
         <header className="h-16 border-b border-[#1f1f1f] flex items-center justify-between px-8 sticky top-0 bg-[#0E0E0E]/80 backdrop-blur-md z-10">
           <div className="relative w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input 
-              type="text" 
-              placeholder="Search projects..." 
+            <input
+              type="text"
+              placeholder="Search projects..."
               className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition"
             />
           </div>
@@ -135,14 +153,14 @@ const Dashboard = () => {
 
         {/* Content Body */}
         <div className="p-8 max-w-7xl mx-auto space-y-10">
-          
+
           {/* Welcome Section */}
           <div>
             <h1 className="text-3xl font-bold mb-6">Good to see you again</h1>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Create Button */}
-              <button 
+              <button
                 onClick={handleCreateNew}
                 className="group relative h-48 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-700 p-6 flex flex-col justify-between overflow-hidden hover:scale-[1.01] transition-all duration-300 shadow-2xl shadow-purple-900/20"
               >
@@ -157,7 +175,7 @@ const Dashboard = () => {
               </button>
 
               {/* AI Button */}
-              <button 
+              <button
                 onClick={handleCreateNew}
                 className="group relative h-48 rounded-2xl bg-[#1a1a1a] border border-[#2a2a2a] hover:border-purple-500/50 p-6 flex flex-col justify-between overflow-hidden hover:scale-[1.01] transition-all duration-300"
               >
@@ -190,7 +208,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {projects.map((project) => (
                   <div key={project.id} className="group cursor-pointer">
-                    <div 
+                    <div
                       onClick={() => handleOpenProject(project.id)}
                       className="aspect-video bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] group-hover:border-purple-500/50 overflow-hidden relative mb-3 transition"
                     >
@@ -201,20 +219,20 @@ const Dashboard = () => {
                           <Video className="w-8 h-8 text-gray-600" />
                         </div>
                       )}
-                      
+
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition backdrop-blur-sm">
                         <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition">
                           <Play className="w-4 h-4 text-black ml-0.5" />
                         </div>
                       </div>
-                      
+
                       {project.duration > 0 && (
                         <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded text-xs text-white">
                           {Math.floor(project.duration / 60)}:{(Math.floor(project.duration % 60)).toString().padStart(2, '0')}
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex items-start justify-between px-1">
                       <div className="flex-1 min-w-0">
                         {editingProject === project.id ? (
@@ -244,7 +262,7 @@ const Dashboard = () => {
                           </>
                         )}
                       </div>
-                      
+
                       <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => {
@@ -277,11 +295,10 @@ const Dashboard = () => {
 
 function SidebarItem({ icon: Icon, label, active = false }: { icon: any, label: string, active?: boolean }) {
   return (
-    <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-      active 
-        ? 'bg-purple-600/10 text-purple-400 border border-purple-500/10' 
-        : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
-    }`}>
+    <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${active
+      ? 'bg-purple-600/10 text-purple-400 border border-purple-500/10'
+      : 'text-gray-400 hover:text-white hover:bg-[#1a1a1a]'
+      }`}>
       <Icon className={`w-5 h-5 ${active ? 'text-purple-400' : 'text-gray-500'}`} />
       {label}
     </button>
