@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 const projects = [
   {
     title: "Thick to Ripped",
+    url: "https://thick-to-ripped.vercel.app",
     image: "/project-thicktoripped.png",
     tags: ["Web App", "Restaurant", "Fitness"],
     description: "High-protein meals & macro-friendly nutrition platform for fitness enthusiasts in Goa.",
@@ -10,6 +11,7 @@ const projects = [
   },
   {
     title: "HHS Bloom",
+    url: "https://hhs-flower.vercel.app",
     image: "/project-hhsbloom.png",
     tags: ["Web App", "Florist", "E-Commerce"],
     description: "Premium florist website for Mapusa's finest bloom delivery service.",
@@ -17,6 +19,7 @@ const projects = [
   },
   {
     title: "KleanBee",
+    url: "https://goa-clean-bee.vercel.app",
     image: "/project-kleanbee.png",
     tags: ["Web App", "Cleaning", "Booking"],
     description: "Professional cleaning service platform with online booking for Goa homes & offices.",
@@ -40,9 +43,12 @@ const PortfolioSection = () => {
         {/* Mobile: single column stack. Desktop: bento grid */}
         <div className="mt-10 grid grid-cols-1 gap-6 sm:mt-16 sm:gap-8 lg:grid-cols-2">
           {projects.map((project, i) => (
-            <div
+            <a
+              href={project.url}
+              target="_blank"
+              rel="noopener noreferrer"
               key={project.title}
-              className={`group overflow-hidden rounded-2xl border border-border/40 bg-card/30 backdrop-blur-sm transition-all duration-300 hover:border-orange/50 hover:shadow-orange-glow ${
+              className={`block group overflow-hidden rounded-2xl border border-border/40 bg-card/30 backdrop-blur-sm transition-all duration-300 hover:border-orange/50 hover:shadow-orange-glow ${
                 i === 0 ? "lg:col-span-2" : ""
               }`}
             >
@@ -78,7 +84,7 @@ const PortfolioSection = () => {
                   ))}
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>

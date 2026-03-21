@@ -194,8 +194,16 @@ const PricingDashboard = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
+                href="https://wa.me/919322720861"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="geometric-clip bg-teal px-8 py-3 font-heading text-sm font-bold text-primary-foreground shadow-teal-glow transition-all hover:scale-105"
+              >
+                WhatsApp Us
+              </a>
+              <a
                 href="mailto:aurionstack@gmail.com"
-                className="geometric-clip bg-gradient-teal px-8 py-3 font-heading text-sm font-bold text-primary-foreground shadow-teal-glow transition-all hover:scale-105"
+                className="geometric-clip-sm border-2 border-teal/50 bg-transparent px-8 py-3 font-heading text-sm font-bold text-teal transition-all hover:bg-teal/10"
               >
                 Email Us
               </a>
@@ -205,7 +213,7 @@ const PricingDashboard = () => {
                 rel="noopener noreferrer"
                 className="geometric-clip-sm border-2 border-teal/50 bg-transparent px-8 py-3 font-heading text-sm font-bold text-teal transition-all hover:bg-teal/10"
               >
-                DM on Instagram
+                Instagram
               </a>
             </div>
           </motion.div>
