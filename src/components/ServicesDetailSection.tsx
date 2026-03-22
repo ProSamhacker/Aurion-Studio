@@ -7,6 +7,10 @@ import {
   BarChart3,
   Wrench,
   ArrowRight,
+  Bot,
+  Youtube,
+  Video,
+  BriefcaseBusiness,
 } from "lucide-react";
 
 const services = [
@@ -111,6 +115,37 @@ const cardVariants = {
   }),
 };
 
+const premiumProducts = [
+  {
+    icon: Bot,
+    title: "AuraIQ",
+    hook: "24/7 AI Employees for Local Businesses.",
+    link: "/auraiq",
+    color: "teal"
+  },
+  {
+    icon: Youtube,
+    title: "GapTuber",
+    hook: "Find Winning Content Gaps on YouTube instantly.",
+    link: "/gaptuber",
+    color: "orange"
+  },
+  {
+    icon: Video,
+    title: "Visioscript",
+    hook: "AI Video Editing. From Script to Screen.",
+    link: "/visioscript",
+    color: "teal"
+  },
+  {
+    icon: BriefcaseBusiness,
+    title: "BusinessZip",
+    hook: "All-in-One Business Utilities.",
+    link: "/businesszip",
+    color: "orange"
+  }
+];
+
 const ServicesDetailSection = () => {
   return (
     <section
@@ -199,6 +234,52 @@ const ServicesDetailSection = () => {
               </motion.div>
             );
           })}
+        </div>
+
+        {/* Premium Products */}
+        <div className="mt-28">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-14"
+          >
+            <span className="inline-block font-body text-xs font-semibold uppercase tracking-widest text-orange mb-3">
+              Premium Features
+            </span>
+            <h2 className="font-heading text-3xl font-black text-foreground sm:text-4xl">
+              Our Proprietary <span className="text-gradient-orange">Tools</span>
+            </h2>
+            <p className="mt-4 font-body text-base text-muted-foreground max-w-2xl mx-auto">
+              Ready-to-deploy, high-performance software products that give your business an unfair advantage. 
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {premiumProducts.map((prod, i) => (
+              <motion.div
+                key={prod.title}
+                custom={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                onClick={() => window.open(prod.link, "_self")}
+                className="group cursor-pointer rounded-2xl border border-border bg-card p-6 shadow-sm transition-all hover:-translate-y-2 hover:border-teal/50 hover:shadow-teal-glow/30"
+              >
+                <div className={`mb-5 inline-flex rounded-2xl p-4 ${prod.color === 'teal' ? 'bg-teal/10 text-teal' : 'bg-orange/10 text-orange'}`}>
+                  <prod.icon size={28} />
+                </div>
+                <h3 className="mb-3 font-heading text-xl font-bold">{prod.title}</h3>
+                <p className="font-body text-sm text-muted-foreground leading-relaxed">{prod.hook}</p>
+                
+                <div className="mt-6 flex items-center font-body text-sm font-semibold text-teal opacity-80 transition-opacity group-hover:opacity-100">
+                  Explore Tool <ArrowRight size={16} className="ml-1 transition-transform group-hover:translate-x-1" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
         {/* CTA strip */}
