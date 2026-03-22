@@ -1,11 +1,12 @@
 import { ReviewsProvider } from "@/context/ReviewsContext";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
+import ProductsSection from "@/components/ProductsSection";
 import ServicesSection from "@/components/ServicesSection";
-import PricingSection from "@/components/PricingSection";
-import TechStackSection from "@/components/TechStackSection";
 import PortfolioSection from "@/components/PortfolioSection";
+import TechStackSection from "@/components/TechStackSection";
 import ReviewsSection from "@/components/ReviewsSection";
+import PricingSection from "@/components/PricingSection";
 import ContactSection from "@/components/ContactSection";
 import BackToTop from "@/components/BackToTop";
 import SchemaOrg, {
@@ -21,11 +22,12 @@ const Index = () => {
       <div className="min-h-screen bg-background">
         <Navbar />
         <HeroSection />
+        <ProductsSection />
         <ServicesSection />
         <PortfolioSection />
-        <PricingSection />
         <TechStackSection />
         <ReviewsSection />
+        <PricingSection />
         <ContactSection />
         <BackToTop />
       </div>
