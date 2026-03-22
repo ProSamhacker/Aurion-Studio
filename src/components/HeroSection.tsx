@@ -3,36 +3,36 @@ import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { useReviews } from "@/context/ReviewsContext";
 
-// Animate a number from 0 to target over ~1.2s on mount
-const useCountUp = (target: number, decimals = 0, duration = 1200) => {
-  const [value, setValue] = useState(0);
-  const rafRef = useRef<number>(0);
-  useEffect(() => {
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
-      const current = eased * target;
-      setValue(parseFloat(current.toFixed(decimals)));
-      if (t < 1) rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [target, decimals, duration]);
-  return value;
-};
-
-// Animated metric sub-component
+// Animated metric sub-component that mutates DOM directly for performance
 const AnimatedMetricItem = ({
   label, target, suffix, decimals = 0, showStars = false, avgRating = 0,
 }: {
   label: string; target: number; suffix: string; decimals?: number; showStars?: boolean; avgRating?: number;
 }) => {
-  const value = useCountUp(target, decimals);
+  const nodeRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    const duration = 1200;
+    const start = performance.now();
+    let rafId: number;
+
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const current = eased * target;
+      node.innerText = current.toFixed(decimals) + suffix;
+      if (t < 1) rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [target, decimals, suffix]);
+
   return (
     <div className="flex flex-col items-center gap-1 py-5 px-2">
-      <span className="font-heading text-2xl font-black text-gradient-teal leading-none sm:text-3xl">
-        {value.toFixed(decimals)}{suffix}
+      <span ref={nodeRef} className="font-heading text-2xl font-black text-gradient-teal leading-none sm:text-3xl">
+        0{suffix}
       </span>
       {showStars && avgRating > 0 && (
         <div className="flex gap-0.5 mt-0.5">
@@ -89,8 +89,8 @@ const HeroSection = () => {
             } as React.CSSProperties}
           />
         ))}
-        <div className="absolute left-1/4 top-1/3 h-64 w-64 rounded-full bg-teal/10 blur-[100px] animate-pulse-glow sm:h-96 sm:w-96" />
-        <div className="absolute right-1/4 bottom-1/4 h-48 w-48 rounded-full bg-orange/5 blur-[80px] animate-pulse-glow sm:h-72 sm:w-72" />
+        <div className="absolute left-0 top-1/4 h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(14,116,144,0.15)_0%,_transparent_60%)] animate-pulse-glow pointer-events-none" />
+        <div className="absolute right-0 bottom-0 h-[400px] w-[400px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(245,158,11,0.08)_0%,_transparent_60%)] animate-pulse-glow pointer-events-none" />
       </div>
 
       <div className="container relative mx-auto">
