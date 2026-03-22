@@ -1,21 +1,62 @@
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { useReviews } from "@/context/ReviewsContext";
 
-const HeroSection = () => {
-  const { avgRating, reviews } = useReviews();
+// Animate a number from 0 to target over ~1.2s on mount
+const useCountUp = (target: number, decimals = 0, duration = 1200) => {
+  const [value, setValue] = useState(0);
+  const rafRef = useRef<number>(0);
+  useEffect(() => {
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const current = eased * target;
+      setValue(parseFloat(current.toFixed(decimals)));
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target, decimals, duration]);
+  return value;
+};
 
-  const metrics = [
-    { value: "2+", label: "Years Experience" },
-    { value: "3", label: "Projects Delivered" },
-    {
-      value: avgRating.toFixed(1),
-      label: `Avg. Rating (${reviews.length})`,
-      stars: true,
-    },
-  ];
+// Animated metric sub-component
+const AnimatedMetricItem = ({
+  label, target, suffix, decimals = 0, showStars = false, avgRating = 0,
+}: {
+  label: string; target: number; suffix: string; decimals?: number; showStars?: boolean; avgRating?: number;
+}) => {
+  const value = useCountUp(target, decimals);
+  return (
+    <div className="flex flex-col items-center gap-1 py-5 px-2">
+      <span className="font-heading text-2xl font-black text-gradient-teal leading-none sm:text-3xl">
+        {value.toFixed(decimals)}{suffix}
+      </span>
+      {showStars && avgRating > 0 && (
+        <div className="flex gap-0.5 mt-0.5">
+          {Array.from({ length: 5 }).map((_, s) => (
+            <Star key={s} size={11} className={
+              s < Math.floor(avgRating) ? "fill-orange text-orange"
+              : s < avgRating ? "fill-orange/50 text-orange"
+              : "fill-transparent text-orange/30"
+            } />
+          ))}
+        </div>
+      )}
+      <span className="font-body text-[10px] text-muted-foreground tracking-wide uppercase text-center leading-tight sm:text-xs">
+        {label}
+      </span>
+    </div>
+  );
+};
+
+const HeroSection = () => {
+  const { avgRating } = useReviews();
 
   return (
+
     <section className="relative flex items-center overflow-hidden bg-background px-4 pt-24 pb-16 sm:px-6 sm:pt-28 sm:pb-24">
       {/* Background mesh */}
       <div className="pointer-events-none absolute inset-0">
@@ -91,10 +132,12 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="mx-auto mt-5 max-w-xl font-body text-base leading-relaxed text-muted-foreground sm:text-lg sm:mt-6 md:text-xl"
+            className="mx-auto mt-5 max-w-2xl font-body text-base leading-relaxed text-muted-foreground sm:text-lg sm:mt-6 md:text-xl"
           >
             Aurion Stack delivers next-generation digital solutions — scalable web platforms,
-            seamless mobile apps & cutting-edge AI automation.
+            seamless cross-platform mobile apps &amp; cutting-edge AI automation. We partner with
+            startups and businesses in Goa, India and worldwide to ship production-ready software,
+            fast.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -125,33 +168,9 @@ const HeroSection = () => {
             transition={{ duration: 0.7, delay: 0.65 }}
             className="mt-12 grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/40 bg-card/40 backdrop-blur-sm"
           >
-            {metrics.map((m, i) => (
-              <div key={i} className="flex flex-col items-center gap-1 py-5 px-2">
-                <span className="font-heading text-2xl font-black text-gradient-teal leading-none sm:text-3xl">
-                  {m.value}
-                </span>
-                {m.stars && (
-                  <div className="flex gap-0.5 mt-0.5">
-                    {Array.from({ length: 5 }).map((_, s) => (
-                      <Star
-                        key={s}
-                        size={11}
-                        className={
-                          s < Math.floor(avgRating)
-                            ? "fill-orange text-orange"
-                            : s < avgRating
-                            ? "fill-orange/50 text-orange"
-                            : "fill-transparent text-orange/30"
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-                <span className="font-body text-[10px] text-muted-foreground tracking-wide uppercase text-center leading-tight sm:text-xs">
-                  {m.label}
-                </span>
-              </div>
-            ))}
+            <AnimatedMetricItem label="Years Experience" target={1} suffix="+" />
+            <AnimatedMetricItem label="Projects Delivered" target={10} suffix="+" />
+            <AnimatedMetricItem label="Client Rating" target={avgRating} suffix="★" decimals={1} showStars avgRating={avgRating} />
           </motion.div>
 
         </div>

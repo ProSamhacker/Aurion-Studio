@@ -49,8 +49,15 @@ const ContactSection = () => {
             Let's Build Something{" "}
             <span className="text-gradient-teal">Great</span>
           </h2>
-          <p className="mt-3 font-body text-sm text-muted-foreground sm:text-lg sm:mt-4">
-            Ready to scale your tech? Reach out to us directly.
+          <p className="mt-3 font-body text-sm text-muted-foreground sm:text-base sm:mt-4">
+            Whether you need a high-performance web app, a cross-platform mobile application,
+            or an AI-powered automation system — we'd love to hear about your project. Aurion Stack
+            works with startups, small businesses, and growing brands to turn ideas into production-ready
+            digital products.
+          </p>
+          <p className="mt-3 font-body text-sm text-muted-foreground sm:text-base">
+            Drop us a message on WhatsApp for the fastest response, or reach out via email or Discord.
+            We typically reply within 24 hours and offer a free 30-minute discovery call for new projects.
           </p>
 
           {/* Contact links — stacked on mobile, row on sm+ */}
@@ -74,13 +81,19 @@ const ContactSection = () => {
       </div>
 
       {/* Footer */}
-      <div className="container mx-auto mt-16 border-t border-border px-4 pt-8 sm:mt-20 sm:px-6">
+      <footer className="container mx-auto mt-16 border-t border-border px-4 pt-8 sm:mt-20 sm:px-6">
         <p className="text-center font-body text-xs text-muted-foreground">
-          © 2026 Aurion Stack. All rights reserved.
+          © 2026 Aurion Stack. All rights reserved. ·{" "}
+          <a href="/services" className="hover:text-foreground transition-colors">Services</a>
+          {" · "}
+          <a href="/pricing" className="hover:text-foreground transition-colors">Pricing</a>
+          {" · "}
+          <a href="/insights" className="hover:text-foreground transition-colors">Insights</a>
         </p>
-      </div>
+      </footer>
     </section>
   );
 };
 
 export default ContactSection;
+

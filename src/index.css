@@ -44,8 +44,7 @@
     --navy-card: 216 42% 10%;
     --navy-light: 216 35% 14%;
 
-    /* Typography override to match user screenshot */
-    --font-heading: 'Inter', sans-serif;
+    --font-heading: 'Montserrat', sans-serif;
     --font-body: 'Inter', sans-serif;
 
     --gradient-teal: linear-gradient(135deg, hsl(190 76% 37%), hsl(190 80% 50%));
@@ -96,6 +95,13 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+  }
+
+  /* Keyboard focus ring */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
@@ -177,5 +183,52 @@
     animation: shimmer-line var(--duration, 4s) ease-in-out var(--delay, 0s) infinite, drift var(--duration, 4s) ease-in-out var(--delay, 0s) infinite alternate;
     pointer-events: none;
     border-radius: 9999px;
+  }
+
+  /* Text balance for better headline wrapping on mobile */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Respect reduced-motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .shimmer-line { display: none; }
+  }
+
+  /* Back-to-top button */
+  .back-to-top {
+    position: fixed;
+    bottom: 1.75rem;
+    right: 1.25rem;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.75rem;
+    width: 2.75rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, hsl(190 76% 37%), hsl(190 80% 50%));
+    box-shadow: 0 0 20px hsl(190 76% 37% / 0.5);
+    color: hsl(210 40% 98%);
+    cursor: pointer;
+    border: none;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .back-to-top.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .back-to-top:hover {
+    box-shadow: 0 0 28px hsl(190 76% 37% / 0.7);
+    transform: translateY(-2px);
   }
 }

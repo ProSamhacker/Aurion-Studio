@@ -25,9 +25,9 @@ const StarRating = ({
 );
 
 const ReviewCard = ({ review }: { review: { text: string; author: string; rating: number } }) => (
-  <div className="flex-shrink-0 w-64 geometric-clip border border-border bg-card p-5 mx-3 sm:w-72 sm:p-6">
+  <div className="flex-shrink-0 w-72 geometric-clip border border-border bg-card p-5 mx-3 sm:w-80 sm:p-6">
     <StarRating rating={review.rating} />
-    <p className="mt-3 font-body text-xs leading-relaxed text-muted-foreground italic line-clamp-3 sm:text-sm">
+    <p className="mt-3 font-body text-xs leading-relaxed text-muted-foreground italic sm:text-sm">
       "{review.text}"
     </p>
     <p className="mt-3 font-heading text-xs font-bold text-foreground sm:text-sm">— {review.author}</p>
@@ -47,6 +47,8 @@ const ReviewsSection = () => {
 
   const doubled = [...reviews, ...reviews];
 
+  const isPaused = useRef<boolean>(false);
+
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
@@ -56,10 +58,12 @@ const ReviewsSection = () => {
       if (!lastTime) lastTime = timestamp;
       const delta = timestamp - lastTime;
       lastTime = timestamp;
-      posRef.current -= speed * (delta / 16.67);
-      const halfWidth = track.scrollWidth / 2;
-      if (Math.abs(posRef.current) >= halfWidth) posRef.current = 0;
-      track.style.transform = `translateX(${posRef.current}px)`;
+      if (!isPaused.current) {
+        posRef.current -= speed * (delta / 16.67);
+        const halfWidth = track.scrollWidth / 2;
+        if (Math.abs(posRef.current) >= halfWidth) posRef.current = 0;
+        track.style.transform = `translateX(${posRef.current}px)`;
+      }
       animRef.current = requestAnimationFrame(animate);
     };
     animRef.current = requestAnimationFrame(animate);
@@ -93,7 +97,14 @@ const ReviewsSection = () => {
       <div className="mt-10 relative sm:mt-14">
         <div className="pointer-events-none absolute left-0 top-0 h-full w-12 z-10 bg-gradient-to-r from-background to-transparent sm:w-24" />
         <div className="pointer-events-none absolute right-0 top-0 h-full w-12 z-10 bg-gradient-to-l from-background to-transparent sm:w-24" />
-        <div className="overflow-hidden">
+        <div
+          className="overflow-hidden cursor-pointer"
+          onMouseEnter={() => { isPaused.current = true; }}
+          onMouseLeave={() => { isPaused.current = false; }}
+          onTouchStart={() => { isPaused.current = true; }}
+          onTouchEnd={() => { isPaused.current = false; }}
+          aria-label="Client reviews — hover to pause"
+        >
           <div ref={trackRef} className="flex" style={{ willChange: "transform" }}>
             {doubled.map((review, i) => (
               <ReviewCard key={i} review={review} />
@@ -149,7 +160,11 @@ const ReviewsSection = () => {
             </div>
 
             {submitted && (
-              <p className="text-center font-body text-sm text-teal animate-fade-in">
+              <p
+                className="text-center font-body text-sm text-teal animate-fade-in"
+                role="status"
+                aria-live="polite"
+              >
                 ✓ Your review has been added!
               </p>
             )}

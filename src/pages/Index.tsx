@@ -7,10 +7,17 @@ import TechStackSection from "@/components/TechStackSection";
 import PortfolioSection from "@/components/PortfolioSection";
 import ReviewsSection from "@/components/ReviewsSection";
 import ContactSection from "@/components/ContactSection";
+import BackToTop from "@/components/BackToTop";
+import SchemaOrg, {
+  organizationSchema,
+  websiteSchema,
+  localBusinessSchema,
+} from "@/components/SchemaOrg";
 
 const Index = () => {
   return (
     <ReviewsProvider>
+      <SchemaOrg schemas={[organizationSchema, websiteSchema, localBusinessSchema]} />
       <div className="min-h-screen bg-background">
         <Navbar />
         <HeroSection />
@@ -20,6 +27,7 @@ const Index = () => {
         <TechStackSection />
         <ReviewsSection />
         <ContactSection />
+        <BackToTop />
       </div>
     </ReviewsProvider>
   );

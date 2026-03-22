@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -104,6 +104,15 @@ export const PACKAGES = basePackages.map((pkg) => {
 // ─── Per-package modal ─────────────────────────────────────────────────────
 const PackageModal = ({ pkg, onClose }: { pkg: typeof PACKAGES[0]; onClose: () => void }) => {
   const features = ALL_FEATURES.filter((f) => pkg.featureIds.includes(f.id));
+  const headingId = `modal-title-${pkg.name}`;
+
+  // Close on Escape key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <AnimatePresence>
       <motion.div
@@ -122,12 +131,15 @@ const PackageModal = ({ pkg, onClose }: { pkg: typeof PACKAGES[0]; onClose: () =
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-border/60 bg-background shadow-2xl"
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={headingId}
         >
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur-sm px-6 py-4">
             <div>
               <span className={`font-heading text-xs font-bold uppercase tracking-widest ${pkg.color}`}>{pkg.emoji} {pkg.name} Package</span>
-              <h3 className="font-heading text-xl font-black text-foreground mt-0.5">What's Included</h3>
+              <h3 id={headingId} className="font-heading text-xl font-black text-foreground mt-0.5">What's Included</h3>
             </div>
             <button
               onClick={onClose}
@@ -201,7 +213,7 @@ const PricingSection = () => {
               📦 Suggested Packages
             </span>
             <h2 className="font-heading text-3xl font-black text-foreground sm:text-5xl">
-              Best Way to <span className="text-gradient-teal">Sell</span>
+              Choose Your <span className="text-gradient-teal">Package</span>
             </h2>
             <p className="mx-auto mt-3 max-w-xl font-body text-sm text-muted-foreground sm:text-base">
               Transparent, flexible pricing tailored for cafes &amp; restaurants. Click <strong>View Details</strong> to see what each package includes.

@@ -1,10 +1,16 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Phone } from "lucide-react";
+import usePageMeta from "@/hooks/usePageMeta";
 import { PACKAGES, ALL_FEATURES } from "@/components/PricingSection";
 
 const PricingDashboard = () => {
   const navigate = useNavigate();
+  usePageMeta(
+    "Pricing — Aurion Stack | Web, Mobile & AI Development Packages",
+    "Transparent pricing for custom web development, mobile apps, and AI automation. Choose from Basic, Growth, Premium or Ultimate packages. Based in Goa, India."
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
