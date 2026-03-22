@@ -10,6 +10,10 @@ import NotFound from "./pages/NotFound.tsx";
 const PricingDashboard = lazy(() => import("./pages/Pricing.tsx"));
 const ServicesPage = lazy(() => import("./pages/Services.tsx"));
 const InsightsPage = lazy(() => import("./pages/Insights.tsx"));
+const AuraIQ = lazy(() => import("./pages/AuraIQ.tsx"));
+const GapTuber = lazy(() => import("./pages/GapTuber.tsx"));
+const Visioscript = lazy(() => import("./pages/Visioscript.tsx"));
+const BusinessZip = lazy(() => import("./pages/BusinessZip.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -25,6 +29,10 @@ const App = () => (
             <Route path="/pricing" element={<PricingDashboard />} />
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/insights" element={<InsightsPage />} />
+            <Route path="/auraiq" element={<AuraIQ />} />
+            <Route path="/gaptuber" element={<GapTuber />} />
+            <Route path="/visioscript" element={<Visioscript />} />
+            <Route path="/businesszip" element={<BusinessZip />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
