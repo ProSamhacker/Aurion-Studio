@@ -3,11 +3,13 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import React, { Suspense, lazy } from "react";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import PricingDashboard from "./pages/Pricing.tsx";
-import ServicesPage from "./pages/Services.tsx";
-import InsightsPage from "./pages/Insights.tsx";
+
+const PricingDashboard = lazy(() => import("./pages/Pricing.tsx"));
+const ServicesPage = lazy(() => import("./pages/Services.tsx"));
+const InsightsPage = lazy(() => import("./pages/Insights.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -17,14 +19,16 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/pricing" element={<PricingDashboard />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/insights" element={<InsightsPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background"><div className="h-8 w-8 animate-spin rounded-full border-4 border-teal border-t-transparent" /></div>}>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/pricing" element={<PricingDashboard />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/insights" element={<InsightsPage />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
