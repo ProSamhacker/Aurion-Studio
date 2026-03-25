@@ -35,7 +35,7 @@ const AuraIQ = () => {
       pricing={[
         {
           tier: "Starter",
-          price: "₹8,000",
+          price: "$149",
           description: "Perfect for single-location small businesses.",
           features: [
             "Custom AI Agent setup",
@@ -46,8 +46,8 @@ const AuraIQ = () => {
         },
         {
           tier: "Premium",
-          price: "₹12,000",
-          description: "+ ₹1,500/month support & maintenance",
+          price: "$249",
+          description: "+ $29/month support & maintenance",
           isPopular: true,
           features: [
             "Everything in Starter",

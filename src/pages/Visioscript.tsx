@@ -35,7 +35,7 @@ const Visioscript = () => {
       pricing={[
         {
           tier: "Starter",
-          price: "₹1,499 / mo",
+          price: "$39 / mo",
           description: "For new creators starting their journey.",
           features: [
             "Up to 30 mins of video generation",
@@ -46,7 +46,7 @@ const Visioscript = () => {
         },
         {
           tier: "Pro",
-          price: "₹3,999 / mo",
+          price: "$99 / mo",
           description: "For high-volume creators and agencies.",
           isPopular: true,
           features: [

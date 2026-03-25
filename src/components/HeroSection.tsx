@@ -56,10 +56,10 @@ const HeroSection = () => {
   const { avgRating } = useReviews();
 
   return (
-    <section className="relative flex items-center overflow-hidden bg-background px-4 pt-32 pb-20 sm:px-6 sm:pt-40 sm:pb-32">
-      {/* Subtle Premium Background Glows instead of harsh neon lines */}
-      <div className="absolute inset-0 pointer-events-none opacity-40">
-        <div className="absolute left-1/2 top-0 h-[800px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+    <section className="relative flex items-center overflow-hidden bg-background px-4 pt-32 pb-20 sm:px-6 sm:pt-40 sm:pb-32 bg-grid-white bg-grid">
+      {/* Subtle Premium Background Glows, restricted by a radial mask to create depth */}
+      <div className="absolute inset-0 pointer-events-none [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]">
+        <div className="absolute left-1/2 top-0 h-[600px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[100px]" />
       </div>
 
       <div className="container relative mx-auto z-10">
@@ -86,12 +86,12 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="flex flex-col gap-2 font-bold tracking-tighter text-foreground sm:gap-3"
+            className="flex flex-col gap-2 font-heading tracking-tight text-foreground sm:gap-3"
           >
             <span className="text-5xl sm:text-7xl md:text-8xl lg:text-[5.5rem] leading-[1.05]">
               Product Engineering
             </span>
-            <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[4.5rem] leading-[1.05] text-muted-foreground">
+            <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[4.5rem] leading-[1.05] italic text-muted-foreground/80">
               Built for Scale.
             </span>
           </motion.h1>
@@ -129,16 +129,29 @@ const HeroSection = () => {
             </a>
           </motion.div>
 
-          {/* Metrics Bar */}
+          {/* Metrics Bar & Mockup wrapper */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.5 }}
-            className="mt-16 grid grid-cols-3 divide-x divide-border rounded-xl border border-border bg-background/50 backdrop-blur-md shadow-sm"
+            className="mt-16 w-full"
           >
-            <AnimatedMetricItem label="Years Experience" target={5} suffix="+" />
-            <AnimatedMetricItem label="Projects Delivered" target={24} suffix="+" />
-            <AnimatedMetricItem label="Client Rating" target={avgRating} suffix="★" decimals={1} showStars avgRating={avgRating} />
+            {/* Minimal Dashboard Mockup Frame */}
+            <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-white/5 bg-surface-gradient backdrop-blur-sm shadow-2xl ring-1 ring-white/10">
+              {/* Browser/Window Header */}
+              <div className="flex h-10 w-full items-center gap-2 border-b border-white/5 bg-black/40 px-4">
+                <div className="h-3 w-3 rounded-full bg-white/20" />
+                <div className="h-3 w-3 rounded-full bg-white/20" />
+                <div className="h-3 w-3 rounded-full bg-white/20" />
+              </div>
+              
+              {/* Internal Content (Metrics inside the "dashboard") */}
+              <div className="grid grid-cols-3 divide-x divide-white/5 bg-black/20 p-6 sm:p-10">
+                <AnimatedMetricItem label="Years Experience" target={5} suffix="+" />
+                <AnimatedMetricItem label="Production Deployments" target={24} suffix="+" />
+                <AnimatedMetricItem label="Client Rating" target={avgRating} suffix="★" decimals={1} showStars avgRating={avgRating} />
+              </div>
+            </div>
           </motion.div>
 
         </div>

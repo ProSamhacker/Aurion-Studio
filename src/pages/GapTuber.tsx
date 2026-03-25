@@ -35,7 +35,7 @@ const GapTuber = () => {
       pricing={[
         {
           tier: "Starter",
-          price: "₹999 / mo",
+          price: "$19 / mo",
           description: "For new creators finding their footing.",
           features: [
             "Up to 50 gap analyses / month",
@@ -46,7 +46,7 @@ const GapTuber = () => {
         },
         {
           tier: "Pro",
-          price: "₹2,499 / mo",
+          price: "$49 / mo",
           description: "For serious creators scaling their channels.",
           isPopular: true,
           features: [

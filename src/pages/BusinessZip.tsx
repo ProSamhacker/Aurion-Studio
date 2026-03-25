@@ -46,7 +46,7 @@ const BusinessZip = () => {
         },
         {
           tier: "Pro",
-          price: "₹999 / mo",
+          price: "$29 / mo",
           description: "A complete suite for growing teams.",
           isPopular: true,
           features: [

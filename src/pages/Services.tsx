@@ -27,9 +27,9 @@ const serviceSchemas = [
   ),
   buildServiceSchema(
     "E-Commerce & Online Ordering Systems",
-    "Conversion-optimised online stores with real-time inventory, Stripe/Razorpay payments, WhatsApp ordering, and admin dashboards your team can manage without code.",
+    "Conversion-optimised online stores with real-time inventory, secure Stripe flows, WhatsApp ordering, and admin dashboards your team can manage without code.",
     "https://aurionstack.dev/services#ecommerce",
-    ["E-Commerce", "Stripe", "Razorpay", "WooCommerce", "Online Store"]
+    ["E-Commerce", "Stripe", "B2B Flows", "Payment Gateway", "Online Store"]
   ),
   buildServiceSchema(
     "Analytics, SEO & Performance Audits",
