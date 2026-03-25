@@ -58,9 +58,9 @@ const HeroSection = () => {
   return (
 
     <section className="relative flex items-center overflow-hidden bg-background px-4 pt-24 pb-16 sm:px-6 sm:pt-28 sm:pb-24">
-      {/* Background mesh */}
-      <div className="pointer-events-none absolute inset-0">
-        <svg className="h-full w-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
+      {/* Subtle background grid — low opacity, no animation */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <svg className="h-full w-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="geo-mesh" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
               <path d="M0 30 L30 0 L60 30 L30 60 Z" fill="none" stroke="hsl(190 76% 37%)" strokeWidth="0.5" />
@@ -68,29 +68,6 @@ const HeroSection = () => {
           </defs>
           <rect width="100%" height="100%" fill="url(#geo-mesh)" />
         </svg>
-        {/* Glittering shimmer lines */}
-        {[
-          { top: "18%", width: "35%", left: "10%",  duration: "4.2s", delay: "0s"   },
-          { top: "35%", width: "20%", left: "65%",  duration: "5.8s", delay: "1.1s" },
-          { top: "52%", width: "28%", left: "30%",  duration: "3.9s", delay: "2.3s" },
-          { top: "70%", width: "15%", left: "55%",  duration: "6.4s", delay: "0.7s" },
-          { top: "82%", width: "40%", left: "5%",   duration: "4.8s", delay: "1.9s" },
-          { top: "12%", width: "18%", left: "75%",  duration: "5.2s", delay: "3.1s" },
-        ].map((s, i) => (
-          <div
-            key={i}
-            className="shimmer-line"
-            style={{
-              top: s.top,
-              left: s.left,
-              width: s.width,
-              "--duration": s.duration,
-              "--delay": s.delay,
-            } as React.CSSProperties}
-          />
-        ))}
-        <div className="absolute left-0 top-1/4 h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(14,116,144,0.15)_0%,_transparent_60%)] animate-pulse-glow pointer-events-none" />
-        <div className="absolute right-0 bottom-0 h-[400px] w-[400px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(245,158,11,0.08)_0%,_transparent_60%)] animate-pulse-glow pointer-events-none" />
       </div>
 
       <div className="container relative mx-auto">
@@ -101,14 +78,14 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
-            className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-teal/30 bg-teal/5 px-4 py-1.5 backdrop-blur-sm sm:mb-8"
+            className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-border bg-muted/50 px-4 py-1.5 backdrop-blur-sm sm:mb-8"
           >
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75"></span>
               <span className="relative inline-flex h-2 w-2 rounded-full bg-teal"></span>
             </span>
-            <span className="font-body text-xs font-medium text-teal-glow tracking-wide sm:text-sm">
-              Available for Projects
+            <span className="font-body text-xs font-medium text-foreground tracking-wide sm:text-sm">
+              Currently accepting new clients
             </span>
           </motion.div>
 
@@ -120,10 +97,10 @@ const HeroSection = () => {
             className="font-heading font-black tracking-tight text-foreground flex flex-col gap-1 sm:gap-2"
           >
             <span className="text-[7vw] sm:text-6xl md:text-7xl lg:text-[5rem] leading-[1.1] whitespace-nowrap">
-              Full-Stack Developer
+              We build software
             </span>
-            <span className="text-gradient-teal text-[6.5vw] sm:text-5xl md:text-6xl lg:text-[4rem] leading-[1.1] whitespace-nowrap">
-              Building Tomorrow
+            <span className="text-teal text-[6.5vw] sm:text-5xl md:text-6xl lg:text-[4rem] leading-[1.1] whitespace-nowrap">
+              that runs your business.
             </span>
           </motion.h1>
 
@@ -134,10 +111,9 @@ const HeroSection = () => {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mx-auto mt-5 max-w-2xl font-body text-base leading-relaxed text-muted-foreground sm:text-lg sm:mt-6 md:text-xl"
           >
-            Aurion Stack delivers next-generation digital solutions — scalable web platforms,
-            seamless cross-platform mobile apps &amp; cutting-edge AI automation. We partner with
-            startups and businesses in Goa, India and worldwide to ship production-ready software,
-            fast.
+            Aurion Stack is a product engineering studio based in Goa. We help local and global brands
+            capture more revenue by replacing slow, manual processes with high-speed web apps and
+            custom AI workflows.
           </motion.p>
 
           {/* CTA Buttons */}
