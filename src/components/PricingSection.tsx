@@ -1,97 +1,80 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, ArrowRight } from "lucide-react";
+import { X, Check, ArrowRight, Zap, Code, LayoutTemplate, Shield, Database, Smartphone, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 // ─── Feature items keyed by id ─────────────────────────────────────────────
 export const ALL_FEATURES = [
-  { id: "website",   emoji: "🌐", title: "Base Website",              price: "₹7,000",           subtitle: ["Home, Menu, About, Contact pages", "Mobile responsive design"] },
-  { id: "domain",    emoji: "🌍", title: "Domain Registration",       price: "₹899 – ₹1,299",   subtitle: [".in → ₹899  |  .com → ₹1,299"] },
-  { id: "location",  emoji: "📍", title: "Location + Open/Close Status", price: "₹1,000",        subtitle: ["Google Maps embed + live timing logic"] },
-  { id: "seo-basic", emoji: "🔎", title: "Basic Local SEO",           price: "₹5,000",           subtitle: ["Google Business profile optimisation", 'Keywords: "cafe near me", "restaurant near me"'] },
-  { id: "seo-adv",   emoji: "🚀", title: "Advanced Local SEO",        price: "₹7,000",           subtitle: ["Menu item indexing (burger, fries…)", "Rich snippets + schema markup"] },
-  { id: "dashboard", emoji: "⚙️", title: "Admin Dashboard",           price: "₹6,000",           subtitle: ["Edit menu, prices, offers & content"] },
-  { id: "social",    emoji: "📲", title: "Social Media Auto Sync",    price: "₹2,000",           subtitle: ["Show latest Instagram posts live on site"] },
-  { id: "qr",        emoji: "🔳", title: "QR Code System",            price: "₹1,500",           subtitle: ["QR for menu · order · review collection"] },
-  { id: "chatbot",   emoji: "🤖", title: "AI WhatsApp Chatbot",       price: "₹8,000 – ₹12,000", subtitle: ["Menu sharing + auto replies", "Order handling (price depends on complexity)"] },
-  { id: "feedback",  emoji: "⭐", title: "Automated Feedback System", price: "₹5,000",           subtitle: ["Rating filter: bad → manager, good → public"] },
-  { id: "upsell",    emoji: "🧠", title: "Smart Upselling System",    price: "₹3,000",           subtitle: ["AI suggestions (coke with burger etc.)"] },
-  { id: "app",       emoji: "📱", title: "Mobile Application",        price: "₹30,000",          subtitle: ["Dedicated iOS + Android app (menu + order)"] },
+  { id: "discovery", emoji: "🔍", title: "Discovery & Architecture", price: "$1,500", subtitle: ["System design, DB schema, user flows", "Technical specification document"] },
+  { id: "frontend",  emoji: "✨", title: "Custom Frontend (Next.js)", price: "$4,000", subtitle: ["Pixel-perfect, accessible UI", "Framer Motion animations, strict TS typing"] },
+  { id: "backend",   emoji: "⚙️", title: "Scalable Backend (Node/Python)", price: "$5,000", subtitle: ["REST or GraphQL API", "PostgreSQL/Redis integration"] },
+  { id: "auth",      emoji: "🔐", title: "Auth & RBAC", price: "$1,500", subtitle: ["SSO, OAuth, passwordless login", "Role-based access control"] },
+  { id: "ai",        emoji: "🧠", title: "LLM / AI Integration", price: "$6,500", subtitle: ["OpenAI/Anthropic integration", "RAG pipelines, custom agents"] },
+  { id: "payments",  emoji: "💳", title: "Payments (Stripe)", price: "$2,000", subtitle: ["Subscription billing, usage-based", "Webhooks and invoice generation"] },
+  { id: "mobile",    emoji: "📱", title: "React Native Mobile App", price: "$12,000", subtitle: ["iOS and Android codebase", "App Store & Play Store deployment"] },
+  { id: "ci-cd",     emoji: "🚀", title: "DevOps & CI/CD", price: "$2,500", subtitle: ["GitHub Actions, Docker containerization", "Vercel / AWS deployment pipelines"] },
 ];
 
-// ─── Automated Value Calculation ───────────────────────────────────────────
 const FEATURE_VALUES: Record<string, number> = {
-  "website": 7000,
-  "domain": 1299,
-  "location": 1000,
-  "seo-basic": 5000,
-  "seo-adv": 7000,
-  "dashboard": 6000,
-  "social": 2000,
-  "qr": 1500,
-  "chatbot": 12000,
-  "feedback": 5000,
-  "upsell": 3000,
-  "app": 30000,
+  "discovery": 1500,
+  "frontend": 4000,
+  "backend": 5000,
+  "auth": 1500,
+  "ai": 6500,
+  "payments": 2000,
+  "mobile": 12000,
+  "ci-cd": 2500,
 };
 
-// ─── Packages (3 tiers) ────────────────────────────────────────────────────
+// ─── Packages ──────────────────────────────────────────────────────────────
 const basePackages = [
   {
-    emoji: "🟢",
-    name: "Basic",
-    tagline: "Get online fast",
-    priceText: "₹8,000",
-    priceNum: 8000,
-    monthly: "₹500/month",
-    monthlyNote: "Hosting + SSL",
-    color: "text-green-400",
-    borderColor: "border-green-500/40",
-    badgeBg: "bg-green-500/10",
-    featureIds: ["website", "domain", "location"],
-    bullets: ["Website + Domain", "Location & Business Hours", "Google Maps integration"],
+    icon: LayoutTemplate,
+    name: "Foundation",
+    tagline: "High-conversion marketing site",
+    priceText: "$2,999",
+    priceNum: 2999,
+    monthly: "$199/month",
+    monthlyNote: "Hosting, CMS updates, analytics",
+    popular: false,
+    featureIds: ["discovery", "frontend", "ci-cd"],
+    bullets: ["Custom UI/UX Design", "Next.js / React Frontend", "Vercel Deployment Pipeline", "Basic SEO & Analytics"],
   },
   {
-    emoji: "🟡",
-    name: "Growth",
-    tagline: "Attract more customers",
-    priceText: "₹20,000",
-    priceNum: 20000,
-    monthly: "₹1,500/month",
-    monthlyNote: "Hosting + Menu Updates + SEO Report",
-    color: "text-yellow-400",
-    borderColor: "border-yellow-500/40",
-    badgeBg: "bg-yellow-500/10",
-    featureIds: ["website", "domain", "location", "seo-basic", "seo-adv", "dashboard", "social", "qr"],
-    bullets: ["Everything in Basic", "Local SEO + Adv SEO", "Admin Dashboard", "Social Sync & QR"],
+    icon: Code,
+    name: "SaaS MVP",
+    tagline: "Get to market in 6 weeks",
+    priceText: "$8,999",
+    priceNum: 8999,
+    monthly: "$499/month",
+    monthlyNote: "Cloud infra, SLA-backed support",
+    popular: true,
+    featureIds: ["discovery", "frontend", "backend", "auth", "payments", "ci-cd"],
+    bullets: ["Everything in Foundation", "Custom Backend API", "Authentication & RBAC", "Stripe Subscriptions"],
   },
   {
-    emoji: "🔴",
-    name: "Premium",
-    tagline: "Full digital powerhouse",
-    priceText: "₹50,000",
-    priceNum: 50000,
-    monthly: "₹1,500/month",
-    monthlyNote: "Hosting + Menu Updates + SEO Report",
-    color: "text-red-400",
-    borderColor: "border-red-500/40",
-    badgeBg: "bg-red-500/10",
-    featureIds: ["website", "domain", "location", "seo-basic", "seo-adv", "dashboard", "social", "qr", "chatbot", "feedback", "upsell"],
-    bullets: ["Everything in Growth", "Advanced SEO + AI Chatbot", "Feedback Automation", "Upselling System"],
+    icon: Zap,
+    name: "AI Evolution",
+    tagline: "Intelligent product engineering",
+    priceText: "$14,999",
+    priceNum: 14999,
+    monthly: "$699/month",
+    monthlyNote: "API cost mgmt, prompt tuning",
+    popular: false,
+    featureIds: ["discovery", "frontend", "backend", "auth", "ai", "ci-cd"],
+    bullets: ["Everything in SaaS MVP", "Deep LLM Integration", "RAG Pipelines & Agents", "Vector Database Setup"],
   },
   {
-    emoji: "⚫",
-    name: "Ultimate",
-    tagline: "The complete ecosystem",
-    priceText: "₹80,000",
-    priceNum: 80000,
-    monthly: "₹1,500/month",
-    monthlyNote: "Hosting + Menu Updates + SEO Report",
-    color: "text-gray-300",
-    borderColor: "border-gray-500/40",
-    badgeBg: "bg-gray-500/10",
-    featureIds: ["website", "domain", "location", "seo-basic", "seo-adv", "dashboard", "social", "qr", "chatbot", "feedback", "upsell", "app"],
-    bullets: ["Everything in Premium", "Mobile Application"],
+    icon: Shield,
+    name: "Enterprise",
+    tagline: "Full-scale custom ecosystem",
+    priceText: "$24,999",
+    priceNum: 24999,
+    monthly: "$999/month",
+    monthlyNote: "Dedicated engineering pod",
+    popular: false,
+    featureIds: ["discovery", "frontend", "backend", "auth", "ai", "payments", "mobile", "ci-cd"],
+    bullets: ["Everything in AI Evolution", "iOS & Android Mobile App", "Advanced DevOps/CI-CD", "Priority SLA"],
   },
 ];
 
@@ -101,12 +84,11 @@ export const PACKAGES = basePackages.map((pkg) => {
   return { ...pkg, totalValue, discountPct };
 });
 
-// ─── Per-package modal ─────────────────────────────────────────────────────
+// ─── Modal ─────────────────────────────────────────────────────────────────
 const PackageModal = ({ pkg, onClose }: { pkg: typeof PACKAGES[0]; onClose: () => void }) => {
   const features = ALL_FEATURES.filter((f) => pkg.featureIds.includes(f.id));
   const headingId = `modal-title-${pkg.name}`;
 
-  // Close on Escape key
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
@@ -120,63 +102,75 @@ const PackageModal = ({ pkg, onClose }: { pkg: typeof PACKAGES[0]; onClose: () =
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md px-4 sm:p-6"
         onClick={onClose}
       >
         <motion.div
           key="modal"
-          initial={{ opacity: 0, scale: 0.93, y: 24 }}
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.93, y: 24 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-          className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-border/60 bg-background shadow-2xl"
+          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+          transition={{ duration: 0.2 }}
+          className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-background shadow-2xl"
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
           aria-labelledby={headingId}
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur-sm px-6 py-4">
-            <div>
-              <span className={`font-heading text-xs font-bold uppercase tracking-widest ${pkg.color}`}>{pkg.emoji} {pkg.name} Package</span>
-              <h3 id={headingId} className="font-heading text-xl font-black text-foreground mt-0.5">What's Included</h3>
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/90 backdrop-blur-md px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
+                <pkg.icon size={20} />
+              </div>
+              <div>
+                <h3 id={headingId} className="text-xl font-bold tracking-tight text-foreground">{pkg.name} Package</h3>
+                <p className="text-sm text-primary font-medium">{pkg.tagline}</p>
+              </div>
             </div>
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-muted/40 text-muted-foreground hover:text-foreground transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <X size={16} />
             </button>
           </div>
 
           {/* Features */}
-          <div className="divide-y divide-border/40 px-4 py-2">
-            {features.map((f) => (
-              <div key={f.id} className="flex items-start gap-4 py-4">
-                <span className="text-2xl flex-shrink-0 mt-0.5">{f.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-heading text-sm font-bold text-foreground">{f.title}</p>
-                  {f.subtitle.map((s, i) => (
-                    <p key={i} className="font-body text-xs text-muted-foreground mt-0.5">{s}</p>
-                  ))}
+          <div className="px-6 py-4">
+            <h4 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Included Architecture</h4>
+            <div className="space-y-4">
+              {features.map((f) => (
+                <div key={f.id} className="flex items-start justify-between rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-start gap-4">
+                    <span className="text-2xl mt-0.5">{f.emoji}</span>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">{f.title}</p>
+                      <div className="mt-1 space-y-0.5">
+                        {f.subtitle.map((s, i) => (
+                          <p key={i} className="text-xs text-muted-foreground">{s}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-foreground">{f.price}</span>
                 </div>
-                <span className="font-heading text-sm font-black text-gradient-teal flex-shrink-0">{f.price}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Footer */}
-          <div className="border-t border-border/40 px-6 py-4 flex items-center justify-between gap-4">
+          <div className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur-md px-6 py-5 flex items-center justify-between gap-4">
             <div>
-              <p className="font-heading text-lg font-black text-foreground">{pkg.priceText}</p>
-              <p className="font-body text-xs text-muted-foreground">{pkg.monthly} — {pkg.monthlyNote}</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground">{pkg.priceText}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{pkg.monthly} • {pkg.monthlyNote}</p>
             </div>
             <a
               href="#contact"
               onClick={onClose}
-              className="geometric-clip-sm bg-gradient-teal px-6 py-2.5 font-heading text-xs font-bold text-primary-foreground shadow-teal-glow transition-all hover:scale-105"
+              className="rounded-md bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90"
             >
-              Get This Package
+              Select Package
             </a>
           </div>
         </motion.div>
@@ -194,34 +188,26 @@ const PricingSection = () => {
     <>
       {selectedPkg && <PackageModal pkg={selectedPkg} onClose={() => setSelectedPkg(null)} />}
 
-      <section id="packages" className="relative py-20 sm:py-28 bg-background border-t border-border/60">
-        {/* Subtle bg glow */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 h-72 w-96 rounded-full bg-teal/5 blur-[120px]" />
-        </div>
-
-        <div className="container relative mx-auto px-4 sm:px-6">
-          {/* Header */}
+      <section id="packages" className="relative py-24 sm:py-32 bg-background border-t border-border">
+        <div className="container relative mx-auto px-4 sm:px-6 z-10">
+          
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="mb-12 text-center"
+            className="mb-16 max-w-2xl mx-auto text-center"
           >
-            <span className="inline-block font-body text-xs font-semibold uppercase tracking-widest text-teal mb-3">
-              📦 Suggested Packages
-            </span>
-            <h2 className="font-heading text-3xl font-black text-foreground sm:text-5xl">
-              Choose Your <span className="text-gradient-teal">Package</span>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+              Transparent Pricing. <br/><span className="text-muted-foreground">No Surprises.</span>
             </h2>
-            <p className="mx-auto mt-3 max-w-xl font-body text-sm text-muted-foreground sm:text-base">
-              Transparent, flexible pricing tailored for cafes &amp; restaurants. Click <strong>View Details</strong> to see what each package includes.
+            <p className="mt-4 text-base text-muted-foreground">
+              We offer flat-rate, milestone-based pricing for most projects so you know exactly what you'll pay. 
             </p>
           </motion.div>
 
           {/* Package Cards — 4 cols */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 xl:gap-8">
             {PACKAGES.map((pkg, i) => (
               <motion.div
                 key={i}
@@ -229,71 +215,78 @@ const PricingSection = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className={`relative flex flex-col rounded-2xl border ${pkg.borderColor} bg-card/60 p-5 backdrop-blur-sm hover:-translate-y-1 transition-all duration-300`}
+                className={`relative flex flex-col rounded-xl border p-6 sm:p-8 transition-all duration-300 bg-card ${
+                  pkg.popular 
+                    ? "border-primary shadow-[0_0_30px_-5px_hsl(221.2_83.2%_53.3%_/_0.2)] md:-translate-y-2 cursor-default" 
+                    : "border-border hover:border-border/80"
+                }`}
               >
-                {/* Badge section with discount */}
-                <div className="mb-4 flex items-center justify-between">
-                  <div className={`inline-flex items-center gap-2 rounded-full ${pkg.badgeBg} px-3 py-1`}>
-                    <span className="text-base">{pkg.emoji}</span>
-                    <span className={`font-heading text-xs font-bold ${pkg.color}`}>{pkg.name}</span>
-                  </div>
-                  {pkg.discountPct > 0 && (
-                    <span className="rounded-full bg-teal/20 px-2 py-1 font-heading text-[10px] font-black text-teal">
-                      SAVE {pkg.discountPct}%
+                {pkg.popular && (
+                  <div className="absolute -top-3.5 left-0 right-0 flex justify-center">
+                    <span className="rounded-full bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-foreground">
+                      Most Popular
                     </span>
-                  )}
+                  </div>
+                )}
+
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${pkg.popular ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground'}`}>
+                      <pkg.icon size={20} />
+                    </div>
+                    <span className="text-lg font-bold text-foreground">{pkg.name}</span>
+                  </div>
                 </div>
 
-                <p className="font-body text-xs text-muted-foreground mb-2">{pkg.tagline}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-6 min-h-[40px]">{pkg.tagline}</p>
 
                 {/* Price */}
-                <div className="mb-4">
-                  <div className="flex items-end gap-2">
-                    <p className="font-heading text-3xl font-black text-foreground">{pkg.priceText}</p>
-                    <p className="mb-1 font-body text-xs text-muted-foreground line-through decoration-muted-foreground/50">
-                      ₹{pkg.totalValue.toLocaleString('en-IN')}
-                    </p>
+                <div className="mb-6 pb-6 border-b border-border">
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-4xl font-bold tracking-tight text-foreground">{pkg.priceText}</p>
                   </div>
-                  <p className="mt-1 font-body text-xs text-muted-foreground">
-                    <span className="font-semibold text-foreground/70">{pkg.monthly}</span> — {pkg.monthlyNote}
+                  <p className="mt-2 text-xs text-muted-foreground font-medium">
+                    <span className="text-foreground">{pkg.monthly}</span> retained
                   </p>
                 </div>
 
                 {/* Bullets */}
-                <ul className="flex-1 space-y-2 mb-5">
+                <ul className="flex-1 space-y-3.5 mb-8">
                   {pkg.bullets.map((b, bi) => (
-                    <li key={bi} className="flex items-start gap-2 font-body text-sm text-muted-foreground">
-                      <Check size={14} className="mt-0.5 flex-shrink-0 text-teal" />
-                      {b}
+                    <li key={bi} className="flex items-start gap-3 text-sm text-foreground">
+                      <CheckCircle2 size={16} className={`mt-0.5 flex-shrink-0 ${pkg.popular ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="leading-snug">{b}</span>
                     </li>
                   ))}
                 </ul>
 
-                {/* View Details */}
                 <button
                   onClick={() => setSelectedPkg(pkg)}
-                  className={`w-full geometric-clip-sm border ${pkg.borderColor} bg-transparent py-2.5 font-heading text-xs font-bold ${pkg.color} transition-all hover:bg-white/5`}
+                  className={`w-full rounded-md px-4 py-2.5 text-sm font-semibold transition-colors ${
+                    pkg.popular
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "bg-muted text-foreground hover:bg-muted/80"
+                  }`}
                 >
-                  📋 View Details
+                  View Details
                 </button>
               </motion.div>
             ))}
           </div>
 
-          {/* Wide Show More CTA */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="mt-6"
+            className="mt-12 flex justify-center"
           >
             <button
               onClick={() => navigate("/pricing")}
-              className="group w-full flex items-center justify-center gap-3 rounded-2xl border border-teal/30 bg-teal/5 py-5 font-heading text-base font-bold text-teal transition-all hover:bg-teal/10 hover:border-teal/60 hover:shadow-teal-glow"
+              className="group flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
             >
-              <span>Explore Full Pricing Breakdown &amp; Feature Guide</span>
-              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+              See complete feature breakdown
+              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
             </button>
           </motion.div>
         </div>

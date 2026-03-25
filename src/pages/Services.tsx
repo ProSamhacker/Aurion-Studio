@@ -38,10 +38,10 @@ const serviceSchemas = [
     ["SEO", "Google Analytics 4", "Core Web Vitals", "Performance Audit"]
   ),
   buildServiceSchema(
-    "Ongoing Website Maintenance & Support",
-    "Monthly maintenance plans covering managed hosting, SSL, security patches, content updates, and priority support — starting at $200/month.",
+    "Ongoing Product Maintenance & SLA",
+    "Monthly retained engineering covering managed hosting, SSL, security patches, continuous optimization, and priority support — starting at $199/month.",
     "https://aurionstack.dev/services#maintenance",
-    ["Website Maintenance", "Hosting", "SSL", "Support"]
+    ["Website Maintenance", "DevOps", "Retained Engineering", "Hosting", "SLA"]
   ),
 ];
 

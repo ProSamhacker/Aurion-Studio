@@ -6,30 +6,26 @@ const services = [
     icon: Globe,
     title: "Custom Web Experiences",
     description: "Lightning-fast, responsive websites and dynamic web apps. Built on React, Next.js, and TypeScript for speed, SEO, and scalability.",
-    color: "teal",
   },
   {
     icon: Smartphone,
     title: "Cross-Platform Mobile Apps",
-    description: "High-performance native and multiplatform applications for iOS and Android using React Native and Expo.",
-    color: "orange",
+    description: "High-performance native and multiplatform applications for iOS and Android using React Native SDKs.",
   },
   {
     icon: Brain,
     title: "Intelligent AI Automation",
-    description: "Streamline workflows, integrate smart chatbots, and optimise operations with GPT-4, Groq, and LangChain pipelines.",
-    color: "teal",
+    description: "Streamline workflows, integrate smart agents, and optimise data pipelines with LLMs and RAG architectures.",
   },
   {
     icon: Layers,
-    title: "End-to-End Solutions",
-    description: "Tailored software infrastructure — from database architecture to deployment on Vercel or GCP — designed to scale.",
-    color: "orange",
+    title: "Cloud Infrastructure",
+    description: "Tailored software infrastructure — from database architecture to deployment on AWS/Vercel — designed to scale.",
   },
 ];
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 30 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
@@ -39,74 +35,87 @@ const cardVariants = {
 
 const ServicesSection = () => {
   return (
-    <section id="services" className="relative border-t border-border/60 bg-background py-20 sm:py-28">
+    <section id="services" className="relative border-t border-border bg-background py-24 sm:py-32">
       <div className="container mx-auto px-4 sm:px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center"
-        >
-          <span className="inline-block font-body text-xs font-semibold uppercase tracking-widest text-teal mb-3">
-            What We Do
-          </span>
-          <h2 className="font-heading text-3xl font-black text-foreground sm:text-5xl md:text-6xl text-balance">
-            Our <span className="text-gradient-teal">Expertise</span>
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl font-body text-sm text-muted-foreground sm:text-base sm:mt-4">
-            We combine deep technical expertise with creative thinking to deliver solutions that move the needle — on time, every time.
-          </p>
-        </motion.div>
+        
+        {/* Header Content */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="max-w-2xl text-left"
+          >
+            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl text-balance mb-4">
+              Core <span className="text-muted-foreground">Capabilities</span>
+            </h2>
+            <p className="text-base text-muted-foreground sm:text-lg">
+              We combine deep technical expertise with efficient system design to deliver high-performance digital products — on time, every time.
+            </p>
+          </motion.div>
 
-        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:mt-14 sm:gap-6 lg:grid-cols-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="hidden md:block"
+          >
+            <a
+              href="/services"
+              className="group inline-flex items-center justify-center gap-2 rounded-md bg-muted px-6 py-3 text-sm font-semibold text-foreground transition-all hover:bg-muted/80"
+            >
+              See all services
+              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+            </a>
+          </motion.div>
+        </div>
+
+        {/* Services Grid */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           {services.map((service, i) => (
             <motion.div
               key={service.title}
               custom={i}
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-40px" }}
+              viewport={{ once: true, margin: "-50px" }}
               variants={cardVariants}
-              className={`group geometric-clip border border-border bg-card p-6 transition-all duration-300 hover:-translate-y-1 ${
-                service.color === "teal"
-                  ? "hover:border-teal hover:shadow-teal-glow"
-                  : "hover:border-orange hover:shadow-orange-glow"
-              } sm:p-8`}
+              className="group flex flex-col rounded-xl border border-border bg-card p-6 sm:p-8 transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:-translate-y-1"
             >
-              <div
-                className={`mb-4 flex h-11 w-11 items-center justify-center geometric-clip-sm ${
-                  service.color === "teal" ? "bg-gradient-teal" : "bg-gradient-orange"
-                } text-primary-foreground sm:mb-5 sm:h-12 sm:w-12`}
-              >
-                <service.icon size={20} />
+              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                <service.icon size={24} />
               </div>
-              <h3 className="font-heading text-base font-bold text-foreground sm:text-lg">
+              
+              <h3 className="text-lg font-bold tracking-tight text-foreground mb-3">
                 {service.title}
               </h3>
-              <p className="mt-2 font-body text-sm leading-relaxed text-muted-foreground">
+              
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 {service.description}
               </p>
             </motion.div>
           ))}
         </div>
 
-        {/* Link to full services page */}
+        {/* Mobile Link */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-8 text-center"
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mt-10 md:hidden"
         >
           <a
             href="/services"
-            className="group inline-flex items-center gap-2 font-body text-sm font-semibold text-teal hover:text-foreground transition-colors"
+            className="group flex w-full items-center justify-center gap-2 rounded-md bg-muted px-6 py-4 text-sm font-semibold text-foreground transition-all hover:bg-muted/80"
           >
-            See all services & detailed scope
-            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+            See all services
+            <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
           </a>
         </motion.div>
+        
       </div>
     </section>
   );

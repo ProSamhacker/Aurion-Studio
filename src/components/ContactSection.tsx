@@ -42,47 +42,44 @@ const contacts = [
 
 const ContactSection = () => {
   return (
-    <section id="contact" className="relative border-t border-border/60 bg-secondary/30 py-20 sm:py-28">
+    <section id="contact" className="relative border-t border-border bg-card py-24 sm:py-32">
       <div className="container mx-auto px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-heading text-3xl font-bold text-foreground sm:text-5xl md:text-6xl">
-            Let's Build Something{" "}
-            <span className="text-gradient-teal">Great</span>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl mb-6">
+            Let's Build Something <span className="text-muted-foreground">Great</span>
           </h2>
-          <p className="mt-3 font-body text-sm text-muted-foreground sm:text-base sm:mt-4">
+          <p className="text-base text-muted-foreground sm:text-lg mb-6 leading-relaxed">
             Whether you need a high-performance web app, a cross-platform mobile application,
             or an AI-powered automation system — we'd love to hear about your project. Aurion Stack
-            works with startups, small businesses, and growing brands to turn ideas into production-ready
+            works with worldwide brands and fast-growing startups to turn ideas into production-ready
             digital products.
           </p>
-          <p className="mt-3 font-body text-sm text-muted-foreground sm:text-base">
+          <p className="text-base text-muted-foreground sm:text-lg leading-relaxed mb-12">
             Drop us a message on WhatsApp for the fastest response, or reach out via email or Discord.
             We typically reply within 24 hours and offer a free 30-minute discovery call for new projects.
           </p>
 
-          {/* Contact links — stacked on mobile, row on sm+ */}
-          <div className="mt-10 flex flex-col items-center gap-4 sm:mt-12 sm:flex-row sm:justify-center sm:gap-6">
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6 flex-wrap">
             {contacts.map(({ href, label, Icon, external }) => (
               <a
                 key={label}
                 href={href}
                 target={external ? "_blank" : undefined}
                 rel={external ? "noopener noreferrer" : undefined}
-                className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-4 font-body text-sm text-foreground transition-all hover:border-teal hover:text-teal hover:shadow-teal-glow sm:w-auto sm:justify-start sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:hover:shadow-none"
+                className="group flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background px-6 py-4 text-sm font-semibold text-foreground transition-all hover:bg-muted hover:border-primary/50 sm:w-auto"
               >
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center bg-gradient-teal geometric-clip-sm text-primary-foreground sm:h-10 sm:w-10">
+                <div className="flex items-center justify-center text-muted-foreground transition-colors group-hover:text-primary">
                   <Icon />
                 </div>
-                <span className="truncate">{label}</span>
+                <span>{label}</span>
               </a>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="container mx-auto mt-16 border-t border-border px-4 pt-8 sm:mt-20 sm:px-6">
-        <p className="text-center font-body text-xs text-muted-foreground">
+      <footer className="container mx-auto mt-24 border-t border-border px-4 pt-10 sm:mt-32 sm:px-6">
+        <p className="text-center text-sm font-medium text-muted-foreground">
           © 2026 Aurion Stack. All rights reserved. ·{" "}
           <a href="/services" className="hover:text-foreground transition-colors">Services</a>
           {" · "}
@@ -96,4 +93,3 @@ const ContactSection = () => {
 };
 
 export default ContactSection;
-

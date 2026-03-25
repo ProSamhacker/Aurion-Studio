@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Globe } from "lucide-react";
 import usePageMeta from "@/hooks/usePageMeta";
 import { PACKAGES, ALL_FEATURES } from "@/components/PricingSection";
 
@@ -13,167 +13,157 @@ const PricingDashboard = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
       {/* Top bar */}
-      <div className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-xl">
+      <div className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto flex items-center gap-4 px-4 py-4 sm:px-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 font-body text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft size={16} />
             Back
           </button>
           <div className="flex-1" />
-          <span className="font-heading text-sm font-bold text-teal">Aurion Stack · Pricing</span>
+          <span className="text-sm font-bold tracking-tight text-foreground">Pricing Overview</span>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-12 sm:px-6 sm:py-16 max-w-5xl">
+      <div className="container mx-auto px-4 py-16 sm:px-6 sm:py-24 max-w-5xl">
 
-        {/* Hero heading */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-14 text-center"
+          className="mb-16 text-center"
         >
-          <span className="inline-block font-body text-xs font-semibold uppercase tracking-widest text-teal mb-3">
-            Complete Pricing Guide
-          </span>
-          <h1 className="font-heading text-4xl font-black text-foreground sm:text-5xl">
-            Transparent <span className="text-gradient-teal">Pricing</span>
+          <h1 className="text-4xl font-bold tracking-tighter text-foreground sm:text-5xl md:text-6xl mb-4">
+            Engineering that <span className="text-muted-foreground">scales.</span>
           </h1>
-          <p className="mt-3 font-body text-sm text-muted-foreground max-w-lg mx-auto sm:text-base">
-            Everything you need to know — from starter packages to full digital transformation. Mix &amp; match any features.
+          <p className="text-base text-muted-foreground max-w-2xl mx-auto sm:text-lg text-balance">
+            Transparent, flat-rate pricing for product builds. Mix and match features or choose an optimized package to get to market faster.
           </p>
         </motion.div>
 
         {/* ── Packages ───────────────────────────────────────────────── */}
-        <section className="mb-16">
-          <h2 className="font-heading text-2xl font-black text-foreground mb-6">
-            📦 Suggested Packages
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <section className="mb-24">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {PACKAGES.map((pkg, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, delay: i * 0.1 }}
-                className={`rounded-2xl border ${pkg.borderColor} bg-card/60 p-5`}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                className={`rounded-xl border p-6 flex flex-col ${pkg.popular ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card"}`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`inline-flex items-center gap-2 rounded-full ${pkg.badgeBg} px-3 py-1`}>
-                    <span>{pkg.emoji}</span>
-                    <span className={`font-heading text-xs font-bold ${pkg.color}`}>{pkg.name}</span>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`p-2 rounded-lg ${pkg.popular ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
+                    <pkg.icon size={18} />
                   </div>
-                  {pkg.discountPct > 0 && (
-                    <span className="rounded-full bg-teal/20 px-2 py-1 font-heading text-[10px] font-black text-teal">
-                      SAVE {pkg.discountPct}%
-                    </span>
-                  )}
+                  <span className="font-bold text-base text-foreground">{pkg.name}</span>
                 </div>
-                <div className="flex items-end gap-2">
-                  <p className="font-heading text-3xl font-black text-foreground">{pkg.priceText}</p>
-                  <p className="mb-1 font-body text-xs text-muted-foreground line-through decoration-muted-foreground/50">
-                    ₹{pkg.totalValue.toLocaleString('en-IN')}
+                
+                <div className="mb-6">
+                  <p className="text-3xl font-bold tracking-tight text-foreground">{pkg.priceText}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-through decoration-muted-foreground/50">
+                    ${pkg.totalValue.toLocaleString()}
                   </p>
                 </div>
-                <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground/70">{pkg.monthly}</span> — {pkg.monthlyNote}
-                </p>
-                <ul className="space-y-1.5">
+                
+                <ul className="space-y-3 mb-6 flex-1">
                   {pkg.bullets.map((b, bi) => (
-                    <li key={bi} className="flex items-start gap-2 font-body text-xs text-muted-foreground">
-                      <span className="text-teal mt-0.5">✓</span>
-                      {b}
+                    <li key={bi} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <span className="text-primary mt-0.5">•</span>
+                      <span className="leading-snug">{b}</span>
                     </li>
                   ))}
                 </ul>
+                
+                <p className="text-xs font-medium text-foreground p-3 rounded-lg bg-muted flex flex-col gap-1 text-center">
+                  <span>{pkg.monthly} retained</span>
+                </p>
               </motion.div>
             ))}
           </div>
         </section>
 
         {/* ── Feature Breakdown Table ────────────────────────────────── */}
-        <section className="mb-16">
-          <h2 className="font-heading text-2xl font-black text-foreground mb-2">
-            🔍 Pricing Breakdown — Per Feature
-          </h2>
-          <p className="font-body text-sm text-muted-foreground mb-6">
-            Choose only what you need. Every feature can be purchased individually or as part of a package.
-          </p>
-
-          <div className="rounded-2xl border border-border/60 overflow-hidden">
-            {/* Table header */}
-            <div className="grid grid-cols-[2fr_1fr] bg-card/80 border-b border-border/60 px-5 py-3">
-              <span className="font-heading text-xs font-bold uppercase tracking-widest text-muted-foreground">Feature</span>
-              <span className="font-heading text-xs font-bold uppercase tracking-widest text-muted-foreground text-right">Price</span>
-            </div>
-
-            {ALL_FEATURES.map((f, i) => (
-              <motion.div
-                key={f.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.35, delay: 0.05 + i * 0.04 }}
-                className={`grid grid-cols-[2fr_1fr] items-start px-5 py-4 gap-4 ${i % 2 === 0 ? "bg-card/30" : "bg-transparent"} border-b border-border/30 last:border-0`}
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <span className="text-xl flex-shrink-0 mt-0.5">{f.emoji}</span>
-                  <div className="min-w-0">
-                    <p className="font-heading text-sm font-bold text-foreground leading-snug">{i + 1}. {f.title}</p>
-                    {f.subtitle.map((s, si) => (
-                      <p key={si} className="font-body text-xs text-muted-foreground mt-0.5">{s}</p>
-                    ))}
-                  </div>
-                </div>
-                <p className="font-heading text-sm font-black text-gradient-teal text-right pt-0.5">{f.price}</p>
-              </motion.div>
-            ))}
+        <section className="mb-24">
+          <div className="mb-8 border-b border-border pb-4">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              A-la-carte Architecture
+            </h2>
+            <p className="text-sm text-muted-foreground mt-2">
+              Every system can be purchased individually or layered into an existing codebase.
+            </p>
           </div>
 
-          <p className="mt-4 font-body text-xs text-muted-foreground text-center">
-            * Prices are indicative. Final quote is based on scope &amp; customisation needs.
-          </p>
+          <div className="rounded-xl border border-border overflow-hidden bg-card">
+            <div className="grid grid-cols-[2fr_1fr] bg-muted/50 border-b border-border px-6 py-3">
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Subsystem</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground text-right">Fixed Cost</span>
+            </div>
+
+            <div className="divide-y divide-border">
+              {ALL_FEATURES.map((f, i) => (
+                <motion.div
+                  key={f.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.05 + i * 0.04 }}
+                  className="grid grid-cols-[2fr_1fr] items-center px-6 py-5 gap-4 hover:bg-muted/20 transition-colors"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <span className="text-xl flex-shrink-0">{f.emoji}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{f.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate hidden sm:block">
+                        {f.subtitle.join(" • ")}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold text-foreground text-right">{f.price}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* ── Monthly Plans ──────────────────────────────────────────── */}
-        <section className="mb-16">
-          <h2 className="font-heading text-2xl font-black text-foreground mb-6">
-            📅 Monthly Maintenance Plans
+        <section className="mb-24">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground mb-6">
+            Retained Engineering
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               {
-                name: "Starter Maintenance",
-                price: "₹500/month",
-                items: ["Hosting", "SSL certificate", "Basic uptime monitoring"],
-                note: "For Basic Package clients",
-                color: "border-green-500/40 bg-green-500/5",
+                name: "Infrastructure Support",
+                price: "$199/mo",
+                items: ["Vercel/AWS hosting costs", "SSL & domain management", "24/7 uptime monitoring", "Monthly dependency updates"],
+                note: "Standard SLA",
               },
               {
-                name: "Pro Maintenance",
-                price: "₹1,500/month",
-                items: ["Hosting + SSL", "Monthly menu content updates", "Monthly SEO performance report", "Priority support"],
-                note: "For Growth & Premium clients",
-                color: "border-yellow-500/40 bg-yellow-500/5",
+                name: "Product Partner",
+                price: "$699/mo",
+                items: ["Everything in Infra", "15 hours ad-hoc engineering", "Monthly strategy & analytics review", "Priority Slack channel access"],
+                note: "Priority SLA",
               },
             ].map((plan, i) => (
-              <div key={i} className={`rounded-2xl border ${plan.color} p-5`}>
-                <p className="font-body text-xs text-muted-foreground mb-1">{plan.note}</p>
-                <p className="font-heading text-lg font-bold text-foreground">{plan.name}</p>
-                <p className="font-heading text-2xl font-black text-gradient-teal mt-1 mb-4">{plan.price}</p>
-                <ul className="space-y-1.5">
-                  {plan.items.map((item, ii) => (
-                    <li key={ii} className="flex items-start gap-2 font-body text-sm text-muted-foreground">
-                      <span className="text-teal">✓</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+               <div key={i} className="rounded-xl border border-border bg-card p-6 flex flex-col justify-between">
+                 <div>
+                   <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">{plan.note}</p>
+                   <p className="text-xl font-bold text-foreground mb-1">{plan.name}</p>
+                   <p className="text-3xl font-bold tracking-tight text-foreground mb-6">{plan.price}</p>
+                   <ul className="space-y-3">
+                     {plan.items.map((item, ii) => (
+                       <li key={ii} className="flex items-start gap-3 text-sm text-muted-foreground">
+                         <span className="text-primary mt-0.5">•</span>
+                         {item}
+                       </li>
+                     ))}
+                   </ul>
+                 </div>
+               </div>
             ))}
           </div>
         </section>
@@ -185,41 +175,30 @@ const PricingDashboard = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="rounded-2xl border border-teal/30 bg-teal/5 p-8 text-center"
+            className="rounded-xl border border-border bg-gradient-to-br from-card to-background p-10 text-center"
           >
-            <div className="flex justify-center mb-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal/10 border border-teal/30">
-                <Phone size={20} className="text-teal" />
-              </div>
-            </div>
-            <h2 className="font-heading text-2xl font-black text-foreground mb-2">
-              Not Sure Which Package Fits?
+            <h2 className="text-2xl font-bold tracking-tight text-foreground mb-3">
+              Ready to scope your project?
             </h2>
-            <p className="font-body text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-              Let's have a quick call. We'll understand your cafe's needs and build a custom quote — no obligations.
+            <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
+              Book a consultation call. We'll map out your technical architecture and provide a binding flat-rate quote within 48 hours.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href="mailto:aurionstack@gmail.com"
+                className="flex items-center justify-center gap-2 rounded-md bg-foreground px-6 py-3 text-sm font-semibold text-background transition-colors hover:bg-foreground/90"
+              >
+                <Mail size={16} />
+                Email Us
+              </a>
               <a
                 href="https://wa.me/919322720861"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="geometric-clip bg-teal px-8 py-3 font-heading text-sm font-bold text-primary-foreground shadow-teal-glow transition-all hover:scale-105"
+                className="flex items-center justify-center gap-2 rounded-md border border-border bg-transparent px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
               >
-                WhatsApp Us
-              </a>
-              <a
-                href="mailto:aurionstack@gmail.com"
-                className="geometric-clip-sm border-2 border-teal/50 bg-transparent px-8 py-3 font-heading text-sm font-bold text-teal transition-all hover:bg-teal/10"
-              >
-                Email Us
-              </a>
-              <a
-                href="https://instagram.com/aurionstack"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="geometric-clip-sm border-2 border-teal/50 bg-transparent px-8 py-3 font-heading text-sm font-bold text-teal transition-all hover:bg-teal/10"
-              >
-                Instagram
+                <Phone size={16} />
+                Request Call
               </a>
             </div>
           </motion.div>

@@ -16,7 +16,7 @@ const StarRating = ({
         key={i}
         size={18}
         className={`${
-          i < rating ? "fill-orange text-orange" : "fill-transparent text-orange/40"
+          i < rating ? "fill-primary text-primary" : "fill-transparent text-primary/30"
         } ${onRate ? "cursor-pointer transition-transform hover:scale-125" : ""}`}
         onClick={() => onRate && onRate(i + 1)}
       />
@@ -25,12 +25,12 @@ const StarRating = ({
 );
 
 const ReviewCard = ({ review }: { review: { text: string; author: string; rating: number } }) => (
-  <div className="flex-shrink-0 w-72 geometric-clip border border-border bg-card p-5 mx-3 sm:w-80 sm:p-6">
+  <div className="flex-shrink-0 w-72 rounded-xl border border-border bg-card p-6 mx-3 sm:w-80 shadow-sm">
     <StarRating rating={review.rating} />
-    <p className="mt-3 font-body text-xs leading-relaxed text-muted-foreground italic sm:text-sm">
+    <p className="mt-4 text-sm leading-relaxed text-muted-foreground italic sm:text-base">
       "{review.text}"
     </p>
-    <p className="mt-3 font-heading text-xs font-bold text-foreground sm:text-sm">— {review.author}</p>
+    <p className="mt-4 text-sm font-bold tracking-tight text-foreground">— {review.author}</p>
   </div>
 );
 
@@ -81,22 +81,22 @@ const ReviewsSection = () => {
   };
 
   return (
-    <section id="reviews" className="relative border-t border-border/60 bg-background py-20 overflow-hidden sm:py-28">
+    <section id="reviews" className="relative border-t border-border bg-background py-24 sm:py-32 overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6">
-        <div className="text-center">
-          <h2 className="font-heading text-3xl font-bold text-foreground sm:text-5xl md:text-6xl">
-            Client <span className="text-gradient-orange">Feedback</span>
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
+            Client <span className="text-muted-foreground">Feedback</span>
           </h2>
-          <p className="mt-2 font-body text-sm text-muted-foreground sm:mt-3">
-            What our clients say about working with Aurion Stack
+          <p className="mt-4 text-base text-muted-foreground sm:text-lg">
+            What our clients globally say about working with Aurion Stack
           </p>
         </div>
       </div>
 
       {/* Infinite scrolling ticker */}
-      <div className="mt-10 relative sm:mt-14">
-        <div className="pointer-events-none absolute left-0 top-0 h-full w-12 z-10 bg-gradient-to-r from-background to-transparent sm:w-24" />
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-12 z-10 bg-gradient-to-l from-background to-transparent sm:w-24" />
+      <div className="relative mb-20">
+        <div className="pointer-events-none absolute left-0 top-0 h-full w-16 z-10 bg-gradient-to-r from-background to-transparent sm:w-32" />
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-16 z-10 bg-gradient-to-l from-background to-transparent sm:w-32" />
         <div
           className="overflow-hidden cursor-pointer"
           onMouseEnter={() => { isPaused.current = true; }}
@@ -119,53 +119,53 @@ const ReviewsSection = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mx-auto mt-12 max-w-lg sm:mt-16"
+          className="mx-auto max-w-xl rounded-2xl border border-border bg-muted/20 p-6 sm:p-10 text-center shadow-sm"
         >
-          <p className="mb-1.5 font-heading text-base font-bold text-foreground text-center sm:text-lg sm:mb-2">
+          <h3 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl mb-2">
             Leave a Review
-          </p>
-          <p className="mb-5 font-body text-xs text-muted-foreground text-center sm:text-sm sm:mb-6">
-            Rate our work — it'll appear in the ticker above!
+          </h3>
+          <p className="text-sm text-muted-foreground mb-8">
+            Rate our work — it'll securely appear in our pipeline.
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-4 text-left">
             <input
               type="text"
               value={newAuthor}
               onChange={(e) => setNewAuthor(e.target.value)}
-              placeholder="Your name..."
-              className="w-full geometric-clip-sm border border-border bg-secondary px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground focus:border-teal focus:outline-none"
+              placeholder="Your name or company..."
+              className="w-full rounded-md border border-border bg-background px-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
             />
 
-            <div className="flex items-center gap-3 px-1">
-              <span className="font-body text-sm text-muted-foreground">Rating:</span>
+            <div className="flex items-center gap-3 px-1 py-2">
+              <span className="text-sm font-semibold text-foreground">Rating:</span>
               <StarRating rating={newRating} onRate={setNewRating} />
             </div>
 
-            <div className="flex gap-2 sm:gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
                 placeholder="Share your experience..."
-                className="flex-1 min-w-0 geometric-clip-sm border border-border bg-secondary px-4 py-3 font-body text-sm text-foreground placeholder:text-muted-foreground focus:border-teal focus:outline-none"
+                className="flex-1 min-w-0 rounded-md border border-border bg-background px-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
                 onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               />
               <button
                 onClick={handleSubmit}
-                className="flex-shrink-0 geometric-clip-sm bg-gradient-teal px-4 py-3 font-heading text-sm font-bold text-primary-foreground transition-all hover:shadow-teal-glow sm:px-6"
+                className="w-full sm:w-auto flex-shrink-0 rounded-md bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition-all hover:bg-foreground/90 shadow-sm"
               >
-                Submit
+                Submit Review
               </button>
             </div>
 
             {submitted && (
               <p
-                className="text-center font-body text-sm text-teal animate-fade-in"
+                className="text-center text-sm font-semibold text-primary animate-fade-in mt-4"
                 role="status"
                 aria-live="polite"
               >
-                ✓ Your review has been added!
+                ✓ Your review has been submitted for approval.
               </p>
             )}
           </div>

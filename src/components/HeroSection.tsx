@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { useReviews } from "@/context/ReviewsContext";
@@ -30,22 +30,22 @@ const AnimatedMetricItem = ({
   }, [target, decimals, suffix]);
 
   return (
-    <div className="flex flex-col items-center gap-1 py-5 px-2">
-      <span ref={nodeRef} className="font-heading text-2xl font-black text-gradient-teal leading-none sm:text-3xl">
+    <div className="flex flex-col items-center gap-1.5 py-6 px-2">
+      <span ref={nodeRef} className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
         0{suffix}
       </span>
       {showStars && avgRating > 0 && (
-        <div className="flex gap-0.5 mt-0.5">
+        <div className="flex gap-0.5 mt-1">
           {Array.from({ length: 5 }).map((_, s) => (
-            <Star key={s} size={11} className={
-              s < Math.floor(avgRating) ? "fill-orange text-orange"
-                : s < avgRating ? "fill-orange/50 text-orange"
-                  : "fill-transparent text-orange/30"
+            <Star key={s} size={13} className={
+              s < Math.floor(avgRating) ? "fill-primary text-primary"
+                : s < avgRating ? "fill-primary/50 text-primary"
+                  : "fill-transparent text-primary/30"
             } />
           ))}
         </div>
       )}
-      <span className="font-body text-[10px] text-muted-foreground tracking-wide uppercase text-center leading-tight sm:text-xs">
+      <span className="text-[11px] font-medium tracking-widest text-muted-foreground uppercase text-center mt-1">
         {label}
       </span>
     </div>
@@ -56,74 +56,43 @@ const HeroSection = () => {
   const { avgRating } = useReviews();
 
   return (
-
-    <section className="relative flex items-center overflow-hidden bg-background px-4 pt-24 pb-16 sm:px-6 sm:pt-28 sm:pb-24">
-      {/* Background mesh */}
-      <div className="pointer-events-none absolute inset-0">
-        <svg className="h-full w-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="geo-mesh" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
-              <path d="M0 30 L30 0 L60 30 L30 60 Z" fill="none" stroke="hsl(190 76% 37%)" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#geo-mesh)" />
-        </svg>
-        {/* Glittering shimmer lines */}
-        {[
-          { top: "18%", width: "35%", left: "10%", duration: "4.2s", delay: "0s" },
-          { top: "35%", width: "20%", left: "65%", duration: "5.8s", delay: "1.1s" },
-          { top: "52%", width: "28%", left: "30%", duration: "3.9s", delay: "2.3s" },
-          { top: "70%", width: "15%", left: "55%", duration: "6.4s", delay: "0.7s" },
-          { top: "82%", width: "40%", left: "5%", duration: "4.8s", delay: "1.9s" },
-          { top: "12%", width: "18%", left: "75%", duration: "5.2s", delay: "3.1s" },
-        ].map((s, i) => (
-          <div
-            key={i}
-            className="shimmer-line"
-            style={{
-              top: s.top,
-              left: s.left,
-              width: s.width,
-              "--duration": s.duration,
-              "--delay": s.delay,
-            } as React.CSSProperties}
-          />
-        ))}
-        <div className="absolute left-0 top-1/4 h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(14,116,144,0.15)_0%,_transparent_60%)] animate-pulse-glow pointer-events-none" />
-        <div className="absolute right-0 bottom-0 h-[400px] w-[400px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(245,158,11,0.08)_0%,_transparent_60%)] animate-pulse-glow pointer-events-none" />
+    <section className="relative flex items-center overflow-hidden bg-background px-4 pt-32 pb-20 sm:px-6 sm:pt-40 sm:pb-32">
+      {/* Subtle Premium Background Glows instead of harsh neon lines */}
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute left-1/2 top-0 h-[800px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
       </div>
 
-      <div className="container relative mx-auto">
+      <div className="container relative mx-auto z-10">
         <div className="mx-auto max-w-4xl text-center">
-
+          
           {/* Availability Badge */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-teal/30 bg-teal/5 px-4 py-1.5 backdrop-blur-sm sm:mb-8"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-border bg-muted/30 px-4 py-1.5 shadow-sm backdrop-blur-md"
           >
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-teal"></span>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
             </span>
-            <span className="font-body text-xs font-medium text-teal-glow tracking-wide sm:text-sm">
-              Available for Projects
+            <span className="text-xs font-medium tracking-wide text-foreground sm:text-sm">
+              Available for New Projects
             </span>
           </motion.div>
 
           {/* Headline */}
           <motion.h1
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="font-heading font-black tracking-tight text-foreground flex flex-col gap-1 sm:gap-2"
+            className="flex flex-col gap-2 font-bold tracking-tighter text-foreground sm:gap-3"
           >
-            <span className="text-[7vw] sm:text-6xl md:text-7xl lg:text-[5rem] leading-[1.1] whitespace-nowrap">
-              Full-Stack Developer
+            <span className="text-5xl sm:text-7xl md:text-8xl lg:text-[5.5rem] leading-[1.05]">
+              Product Engineering
             </span>
-            <span className="text-gradient-teal text-[6.5vw] sm:text-5xl md:text-6xl lg:text-[4rem] leading-[1.1] whitespace-nowrap">
-              Building Tomorrow
+            <span className="text-4xl sm:text-6xl md:text-7xl lg:text-[4.5rem] leading-[1.05] text-muted-foreground">
+              Built for Scale.
             </span>
           </motion.h1>
 
@@ -132,43 +101,43 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="mx-auto mt-5 max-w-2xl font-body text-base leading-relaxed text-muted-foreground sm:text-lg sm:mt-6 md:text-xl"
+            className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl text-balance"
           >
             Aurion Stack is a remote-first product engineering studio. We partner with fast-growing
             startups and enterprise brands worldwide to replace slow, manual processes with high-speed
-            web apps and custom AI dispatchers.
+            web apps and custom AI infrastructure.
           </motion.p>
 
           {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.4 }}
-            className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4"
+            transition={{ duration: 0.7, delay: 0.3 }}
+            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
             <a
               href="#our-work"
-              className="w-full geometric-clip bg-gradient-teal px-8 py-3.5 font-heading text-sm font-bold text-primary-foreground shadow-teal-glow transition-all hover:scale-105 sm:w-auto"
+              className="w-full rounded-md bg-foreground px-8 py-3.5 text-sm font-semibold text-background transition-transform hover:scale-[1.02] sm:w-auto shadow-xl shadow-black/20"
             >
-              View Our Work
+              Explore Our Work
             </a>
             <a
               href="#contact"
-              className="w-full geometric-clip border-2 border-orange bg-transparent px-8 py-3 font-heading text-sm font-bold text-orange transition-all hover:bg-orange/10 sm:w-auto"
+              className="w-full rounded-md border border-border bg-transparent px-8 py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:w-auto"
             >
-              Contact Us
+              Book a Consultation
             </a>
           </motion.div>
 
           {/* Metrics Bar */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.65 }}
-            className="mt-12 grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/40 bg-card/40 backdrop-blur-sm"
+            transition={{ duration: 0.7, delay: 0.5 }}
+            className="mt-16 grid grid-cols-3 divide-x divide-border rounded-xl border border-border bg-background/50 backdrop-blur-md shadow-sm"
           >
-            <AnimatedMetricItem label="Years Experience" target={1} suffix="+" />
-            <AnimatedMetricItem label="Projects Delivered" target={10} suffix="+" />
+            <AnimatedMetricItem label="Years Experience" target={5} suffix="+" />
+            <AnimatedMetricItem label="Projects Delivered" target={24} suffix="+" />
             <AnimatedMetricItem label="Client Rating" target={avgRating} suffix="★" decimals={1} showStars avgRating={avgRating} />
           </motion.div>
 
