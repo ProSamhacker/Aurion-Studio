@@ -29,7 +29,10 @@ export default SchemaOrg;
 
 // ─── Pre-built schema objects ────────────────────────────────────────────────
 
-/** Organization — who Aurion Stack is as a business entity */
+/**
+ * Organization — global entity signal.
+ * No physical address so Google doesn't cap rankings to a local map pack.
+ */
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -44,28 +47,22 @@ export const organizationSchema = {
   },
   image: "https://aurionstack.dev/aurionstack-logo.webp",
   description:
-    "Aurion Stack is a full-stack software development agency based in Goa, India, specialising in custom web platforms, cross-platform mobile apps, and AI-powered automation solutions for startups and businesses worldwide.",
+    "Aurion Stack is a remote-first product engineering studio specialising in custom web platforms, cross-platform mobile apps, and AI-powered automation solutions for startups and enterprise brands worldwide.",
   foundingDate: "2024",
-  address: {
-    "@type": "PostalAddress",
-    addressLocality: "Goa",
-    addressRegion: "Goa",
-    addressCountry: "IN",
-  },
   contactPoint: [
     {
       "@type": "ContactPoint",
-      contactType: "customer service",
-      telephone: "+91-93227-20861",
+      contactType: "customer support",
       email: "aurionstack@gmail.com",
-      availableLanguage: ["English", "Hindi"],
+      availableLanguage: ["English"],
     },
   ],
   sameAs: [
     "https://instagram.com/aurionstack",
-    "https://wa.me/919322720861",
+    "https://github.com/ProSamhacker",
   ],
-  areaServed: ["IN", "US", "GB", "AU", "SG"],
+  // Explicit multi-region service intent — tells Google this is a global entity
+  areaServed: ["US", "GB", "AU", "CA", "SG", "AE", "IN"],
   knowsAbout: [
     "React",
     "Next.js",
@@ -78,6 +75,7 @@ export const organizationSchema = {
     "Groq",
     "Full-Stack Development",
     "SEO Optimisation",
+    "Product Engineering",
   ],
 };
 
@@ -89,52 +87,11 @@ export const websiteSchema = {
   url: "https://aurionstack.dev",
   name: "Aurion Stack",
   description:
-    "Full-stack web, mobile & AI development agency based in Goa, India.",
+    "Full-stack web, mobile & AI development studio — building for global brands.",
   publisher: {
     "@id": "https://aurionstack.dev/#organization",
   },
   inLanguage: "en-US",
-};
-
-/** LocalBusiness — reinforces geographic entity for local AI results */
-export const localBusinessSchema = {
-  "@context": "https://schema.org",
-  "@type": ["LocalBusiness", "ProfessionalService"],
-  "@id": "https://aurionstack.dev/#localbusiness",
-  name: "Aurion Stack",
-  url: "https://aurionstack.dev",
-  telephone: "+91-93227-20861",
-  email: "aurionstack@gmail.com",
-  address: {
-    "@type": "PostalAddress",
-    addressLocality: "Panaji",
-    addressRegion: "Goa",
-    postalCode: "403001",
-    addressCountry: "IN",
-  },
-  geo: {
-    "@type": "GeoCoordinates",
-    latitude: 15.4909,
-    longitude: 73.8278,
-  },
-  openingHoursSpecification: [
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-      ],
-      opens: "09:00",
-      closes: "19:00",
-    },
-  ],
-  priceRange: "₹₹",
-  currenciesAccepted: "INR, USD, EUR",
-  paymentAccepted: "Bank Transfer, UPI, Stripe, Wise",
 };
 
 /** Helper — build a Service schema for a single offering */
@@ -153,7 +110,8 @@ export const buildServiceSchema = (
   provider: {
     "@id": "https://aurionstack.dev/#organization",
   },
-  areaServed: { "@type": "Country", name: "India" },
+  // Worldwide service delivery
+  areaServed: { "@type": "AdministrativeArea", name: "Worldwide" },
   serviceType: name,
 });
 

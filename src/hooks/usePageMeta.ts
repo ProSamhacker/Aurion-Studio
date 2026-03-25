@@ -28,9 +28,9 @@ const usePageMeta = (title: string, description: string) => {
 
     // Restore homepage defaults on unmount
     return () => {
-      document.title = "Aurion Stack – Full-Stack Web, Mobile & AI Development";
+      document.title = "Aurion Stack | Full-Stack Web App & AI Development Studio";
       if (metaDesc) metaDesc.content =
-        "Aurion Stack builds scalable web platforms, cross-platform mobile apps, and AI-powered automation solutions. Based in Goa, India. Available for projects worldwide.";
+        "Aurion Stack is a remote-first product engineering studio building high-speed web apps, mobile apps, and custom AI workflows for startups and global brands.";
     };
   }, [title, description]);
 };

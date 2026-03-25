@@ -9,7 +9,7 @@ const PricingDashboard = () => {
   const navigate = useNavigate();
   usePageMeta(
     "Pricing — Aurion Stack | Web, Mobile & AI Development Packages",
-    "Transparent pricing for custom web development, mobile apps, and AI automation. Choose from Basic, Growth, Premium or Ultimate packages. Based in Goa, India."
+    "Transparent pricing for custom web development, mobile apps, and AI automation. Choose a package that fits your needs. Remote-first, delivering worldwide."
   );
 
   return (

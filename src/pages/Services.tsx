@@ -6,43 +6,42 @@ import SchemaOrg, { buildServiceSchema, buildFaqSchema } from "@/components/Sche
 import { faqs } from "@/data/faqData";
 import usePageMeta from "@/hooks/usePageMeta";
 
-// Service schemas — one per offering so AI can cite each individually
 const serviceSchemas = [
   buildServiceSchema(
     "Custom Web Development",
     "Lightning-fast, SEO-optimised websites and web applications built with React, Next.js, TypeScript and Tailwind CSS. Mobile-first, accessible, and production-ready.",
     "https://aurionstack.dev/services#custom-web-development",
-    ["React", "Next.js", "TypeScript", "Tailwind CSS", "SEO", "Web Development", "India"]
+    ["React", "Next.js", "TypeScript", "Tailwind CSS", "SEO", "Web Development", "Remote"]
   ),
   buildServiceSchema(
     "Cross-Platform Mobile App Development",
     "iOS and Android apps from a single React Native and Expo codebase. Push notifications, in-app payments, offline support, and App Store submission handled end-to-end.",
     "https://aurionstack.dev/services#mobile-app-development",
-    ["React Native", "Expo", "iOS", "Android", "Mobile App Development", "India"]
+    ["React Native", "Expo", "iOS", "Android", "Mobile App Development", "Global"]
   ),
   buildServiceSchema(
     "AI Automation & Chatbot Integration",
     "Custom AI chatbots and automation pipelines using GPT-4, LLaMA, Groq, LangChain, and n8n. Streamline customer support, data processing, and internal workflows.",
     "https://aurionstack.dev/services#ai-automation",
-    ["AI Automation", "Chatbot", "LangChain", "OpenAI", "Groq", "n8n", "India"]
+    ["AI Automation", "Chatbot", "LangChain", "OpenAI", "Groq", "n8n"]
   ),
   buildServiceSchema(
     "E-Commerce & Online Ordering Systems",
     "Conversion-optimised online stores with real-time inventory, Stripe/Razorpay payments, WhatsApp ordering, and admin dashboards your team can manage without code.",
     "https://aurionstack.dev/services#ecommerce",
-    ["E-Commerce", "Stripe", "Razorpay", "WooCommerce", "Online Store", "India"]
+    ["E-Commerce", "Stripe", "Razorpay", "WooCommerce", "Online Store"]
   ),
   buildServiceSchema(
     "Analytics, SEO & Performance Audits",
     "GA4 setup, Google Search Console integration, Core Web Vitals optimisation, keyword gap analysis, and monthly SEO reports to grow your organic search traffic.",
     "https://aurionstack.dev/services#seo-analytics",
-    ["SEO", "Google Analytics 4", "Core Web Vitals", "Performance Audit", "India"]
+    ["SEO", "Google Analytics 4", "Core Web Vitals", "Performance Audit"]
   ),
   buildServiceSchema(
     "Ongoing Website Maintenance & Support",
-    "Monthly maintenance plans covering managed hosting, SSL, security patches, content updates, and priority support — starting at ₹500/month.",
+    "Monthly maintenance plans covering managed hosting, SSL, security patches, content updates, and priority support — starting at $200/month.",
     "https://aurionstack.dev/services#maintenance",
-    ["Website Maintenance", "Hosting", "SSL", "Support", "India"]
+    ["Website Maintenance", "Hosting", "SSL", "Support"]
   ),
 ];
 
@@ -51,7 +50,7 @@ const ServicesPage = () => {
   const navigate = useNavigate();
   usePageMeta(
     "Services — Aurion Stack | Web, Mobile & AI Development",
-    "Discover Aurion Stack's full range of digital services: custom websites, cross-platform mobile apps, AI chatbots, e-commerce, SEO audits, and monthly maintenance plans. Based in Goa, India."
+    "Full-range digital services: custom websites, cross-platform mobile apps, AI chatbots, e-commerce, SEO audits, and monthly maintenance. Remote-first — building for global brands."
   );
 
   return (

@@ -12,13 +12,12 @@ import BackToTop from "@/components/BackToTop";
 import SchemaOrg, {
   organizationSchema,
   websiteSchema,
-  localBusinessSchema,
 } from "@/components/SchemaOrg";
 
 const Index = () => {
   return (
     <ReviewsProvider>
-      <SchemaOrg schemas={[organizationSchema, websiteSchema, localBusinessSchema]} />
+      <SchemaOrg schemas={[organizationSchema, websiteSchema]} />
       <div className="min-h-screen bg-background">
         <Navbar />
         <HeroSection />
