@@ -8,10 +8,12 @@ import {
   Wrench,
   ArrowRight,
   Bot,
-  Youtube,
   Video,
   BriefcaseBusiness,
+  Layers,
+  Zap,
 } from "lucide-react";
+import GapTuberIcon from "@/components/icons/GapTuberIcon";
 
 const services = [
   {
@@ -117,7 +119,7 @@ const premiumProducts = [
     link: "/auraiq",
   },
   {
-    icon: Youtube,
+    icon: GapTuberIcon,
     title: "GapTuber",
     hook: "Find Winning Content Gaps on YouTube instantly.",
     link: "/gaptuber",
